@@ -22,3 +22,7 @@ etc/
 share/.env
 Speech_key.json
 fresh_env_newest/
+.env
+config/Speech_key.json
+config/vectorstore.faiss
+fresh_env_newest/
