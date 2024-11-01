@@ -19,4 +19,6 @@ vertexaikey.json
 .vscode/
 __pycache__/
 etc/
-share/
+share/.env
+Speech_key.json
+fresh_env_newest/
