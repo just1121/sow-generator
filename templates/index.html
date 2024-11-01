@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SOW Generator</title>
+    <style>
+        .recording { color: red; }
+        .question { margin: 20px 0; }
+        textarea { width: 100%; min-height: 100px; }
+        #generate-sow { 
+            margin: 20px 0;
+            padding: 10px 20px;
+            font-size: 1.2em;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>SOW Generator</h1>
+    
+    <!-- Client Section -->
+    <div class="question">
+        <h3>{{ questions.client.question }}</h3>
+        <div>
+            <button onclick="startRecording(this)" data-section="client">Start Recording</button>
+            <button onclick="stopRecording()" disabled>Stop Recording</button>
+        </div>
+        <textarea id="client-answer"></textarea>
+    </div>
+
+    <!-- General Info Section -->
+    <h2>General Information</h2>
+    {% for question in questions.general_info %}
+    <div class="question">
+        <h3>{{ question.question }}</h3>
+        <div>
+            <button onclick="startRecording(this)" data-section="general" data-index="{{ loop.index0 }}">
+                Start Recording
+            </button>
+            <button onclick="stopRecording()" disabled>Stop Recording</button>
+        </div>
+        <textarea id="general-{{ loop.index0 }}"></textarea>
+    </div>
+    {% endfor %}
+
+    <!-- Generate SOW Button -->
+    <button id="generate-sow" onclick="generateSOW()">Generate SOW</button>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let recordingButton;
+        
+        async function startRecording(button) {
+            try {
+                recordingButton = button;
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob);
+                    
+                    try {
+                        const response = await fetch('/transcribe', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        if (data.transcription) {
+                            const section = recordingButton.dataset.section;
+                            const index = recordingButton.dataset.index;
+                            const textareaId = section === 'client' ? 
+                                'client-answer' : `general-${index}`;
+                            
+                            document.getElementById(textareaId).value = data.transcription;
+                        }
+                    } catch (error) {
+                        console.error('Transcription error:', error);
+                        alert('Error during transcription');
+                    }
+                };
+                
+                audioChunks = [];
+                mediaRecorder.start();
+                button.classList.add('recording');
+                button.disabled = true;
+                button.nextElementSibling.disabled = false;
+                
+            } catch (error) {
+                console.error('Recording error:', error);
+                alert('Error accessing microphone');
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                recordingButton.classList.remove('recording');
+                recordingButton.disabled = false;
+                recordingButton.nextElementSibling.disabled = true;
+            }
+        }
+        
+        async function generateSOW() {
+            // Collect all answers
+            const answers = {
+                client: document.getElementById('client-answer').value,
+                general_info: []
+            };
+            
+            // Get general info answers
+            const generalQuestions = {{ questions.general_info|length }};
+            for (let i = 0; i < generalQuestions; i++) {
+                answers.general_info.push(document.getElementById(`general-${i}`).value);
+            }
+            
+            try {
+                const response = await fetch('/generate_sow', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(answers)
+                });
+                
+                if (response.ok) {
+                    // This will trigger the file download
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'Statement_of_Work.docx';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                } else {
+                    throw new Error('Failed to generate SOW');
+                }
+            } catch (error) {
+                console.error('SOW Generation error:', error);
+                alert('Error generating SOW');
+            }
+        }
+    </script>
+</body>
+</html>

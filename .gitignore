@@ -1,0 +1,7 @@
+myproject_env/
+__pycache__/
+*.pyc
+.env
+share/
+.vscode/
+etc/
