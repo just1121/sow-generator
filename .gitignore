@@ -15,3 +15,8 @@ streamlit_audio_recorder/
 textfile.txt
 vectorstore.faiss/
 vertexaikey.json
+.env
+.vscode/
+__pycache__/
+etc/
+share/
