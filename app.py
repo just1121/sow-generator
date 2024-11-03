@@ -1,77 +1,33 @@
-from flask import Flask, render_template, request, jsonify, send_file
-from google.cloud import speech
-from docx import Document
-import tempfile
+import streamlit as st
+from streamlit_audio_recorder import st_audio_recorder
 
-app = Flask(__name__)
-
-# Questions structure (in memory only)
-QUESTIONS = {
-    "client": {"question": "Who is the client?"},
-    "general_info": [
-        {"question": "Why were we called?"},
-        {"question": "Where is the project location?"}
-    ]
-}
-
-@app.route('/')
-def index():
-    return render_template('index.html', questions=QUESTIONS)
-
-@app.route('/transcribe', methods=['POST'])
-def transcribe():
+def main():
+    st.title("Audio Recorder Test")
+    
+    # Add debug info
+    st.write("Debug: Component about to render")
+    
     try:
-        audio_file = request.files['audio']
+        # Create audio recorder with debug info
+        st.write("Attempting to create audio recorder...")
+        audio_bytes = st_audio_recorder(key="audio_recorder")
+        st.write(f"Audio recorder created, type: {type(audio_bytes)}")
         
-        # Google Speech-to-Text
-        client = speech.SpeechClient()
-        audio_content = audio_file.read()
-        audio = speech.RecognitionAudio(content=audio_content)
-        config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.WEBM_OPUS,
-            language_code="en-US",
-            enable_automatic_punctuation=True
-        )
+        # Add more debug info
+        st.write("Debug: Component rendered")
+        st.write("Audio bytes:", audio_bytes)
         
-        response = client.recognize(config=config, audio=audio)
-        transcription = " ".join(result.alternatives[0].transcript for result in response.results)
-        
-        return jsonify({'transcription': transcription})
+        # Check if audio data exists
+        if audio_bytes is not None:
+            st.write("Debug: Audio received")
+            # Display audio playback
+            st.audio(audio_bytes, format='audio/webm')
+            
+            # Optional: Show the raw bytes for debugging
+            st.write(f"Audio bytes length: {len(audio_bytes)}")
     except Exception as e:
-        print(f"Transcription error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        st.error(f"Error occurred: {str(e)}")
+        st.write("Exception type:", type(e))
 
-@app.route('/generate_sow', methods=['POST'])
-def generate_sow():
-    try:
-        # Get all answers from the form
-        answers = request.json
-        
-        # Create a simple document
-        doc = Document()
-        doc.add_heading('Statement of Work', 0)
-        
-        # Add client info
-        doc.add_heading('Client Information', level=1)
-        doc.add_paragraph(answers['client'])
-        
-        # Add general info
-        doc.add_heading('Project Details', level=1)
-        for i, answer in enumerate(answers['general_info']):
-            doc.add_paragraph(f"{QUESTIONS['general_info'][i]['question']}: {answer}")
-        
-        # Save to temporary file
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.docx')
-        doc.save(temp_file.name)
-        
-        return send_file(
-            temp_file.name,
-            as_attachment=True,
-            download_name='Statement_of_Work.docx'
-        )
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    main() 

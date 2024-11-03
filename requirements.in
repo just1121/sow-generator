@@ -3,8 +3,8 @@ google-generativeai
 python-dotenv
 reportlab
 python-docx
-langchain==0.0.350
-langchain-community==0.0.10
+langchain>=0.0.350
+langchain-community>=0.0.10
 langchain-huggingface
 faiss-cpu
 sentence-transformers>=2.6.0
