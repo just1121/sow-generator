@@ -584,9 +584,10 @@ async def generate_sow():
 
             # Configure the model
             genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-            
+            print("API Key loaded:", "Yes" if os.getenv("GOOGLE_API_KEY") else "No")
+
             # Create model and generate content
-            model = genai.GenerativeModel('gemini-pro')
+            model = genai.GenerativeModel('gemini-pro')  # New syntax
             response = await asyncio.to_thread(
                 lambda: model.generate_content(prompt).text
             )
@@ -627,83 +628,74 @@ async def generate_sow():
             st.exception(e)
 
 def transcribe_audio(audio_content, sample_rate_hertz=44100):
-    # Convert WEBM to WAV with specific parameters
-    audio = AudioSegment.from_file(io.BytesIO(audio_content), format="webm")
-    audio = audio.set_frame_rate(sample_rate_hertz)
-    audio = audio.set_sample_width(2)  # Set to 16 bits (2 bytes)
-    
-    # Export as WAV in memory
-    buffer = io.BytesIO()
-    audio.export(buffer, format="wav")
-    wav_audio_content = buffer.getvalue()
-    
-    # Transcribe using Google Speech-to-Text
-    client = speech.SpeechClient()
-    audio = speech.RecognitionAudio(content=wav_audio_content)
-    config = speech.RecognitionConfig(
-        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-        sample_rate_hertz=sample_rate_hertz,
-        language_code="en-US",
-        enable_automatic_punctuation=True,  # Added this for better formatting
-    )
-
     try:
+        # Load audio from bytes
+        audio = AudioSegment.from_file(io.BytesIO(audio_content), format='webm')
+        st.write("Successfully loaded audio")
+        
+        # Convert to proper format
+        audio = audio.set_frame_rate(sample_rate_hertz)
+        audio = audio.set_sample_width(2)
+        audio = audio.set_channels(1)  # Convert to mono
+        
+        # Export as WAV in memory
+        buffer = io.BytesIO()
+        audio.export(buffer, format="wav")
+        wav_audio_content = buffer.getvalue()
+        
+        # Transcribe using Google Speech-to-Text
+        client = speech.SpeechClient()
+        audio = speech.RecognitionAudio(content=wav_audio_content)
+        config = speech.RecognitionConfig(
+            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+            sample_rate_hertz=sample_rate_hertz,
+            language_code="en-US",
+            enable_automatic_punctuation=True,
+        )
+        
+        # Perform the transcription
         response = client.recognize(config=config, audio=audio)
+        
+        # Get the transcription text
         transcription = ""
         for result in response.results:
             transcription += result.alternatives[0].transcript
+            
+        st.write("Transcription completed")
         return transcription
+        
     except Exception as e:
-        st.error(f"Transcription error: {str(e)}")
+        st.error(f"Transcription error: {e}")
         return None
 
 def get_audio_input(question, key):
-    # Custom CSS for alignment and tight spacing
-    st.markdown("""
-        <style>
-        .question-group {
-            margin-bottom: 0px;
-            padding-bottom: 0px;
-        }
-        .stMarkdown p {
-            margin-bottom: 2px;
-        }
-        div[data-testid="stAudioRecorder"] {
-            margin-top: 2px;
-            margin-bottom: 2px;
-            padding-top: 0px;
-            padding-bottom: 0px;
-            margin-left: -10px;  /* Adjust this value to align with question */
-        }
-        .stTextArea {
-            margin-top: 2px;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div class="question-group">', unsafe_allow_html=True)
-    st.markdown(question)
-
-    if st.session_state.input_method == 'Audio':
-        audio_bytes, _ = st_audio_recorder(key=f"recorder_{key}")
-        if audio_bytes is not None:
-            transcription = transcribe_audio(audio_bytes)
-            if transcription:
-                st.session_state[key] = transcription
-
     if key not in st.session_state:
         st.session_state[key] = ""
-
-    user_input = st.text_area(
-        "Your answer", 
-        value=st.session_state.get(key, ""), 
-        key=f"display_{key}", 
-        height=100, 
-        label_visibility="collapsed"
-    )
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
+    
+    # Create columns for layout
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        # Text area instead of text input
+        text_value = st.text_area(question, 
+                                key=f"text_{key}", 
+                                value=st.session_state[key],
+                                height=100)  # You can adjust height in pixels
+        if text_value != st.session_state[key]:
+            st.session_state[key] = text_value
+    
+    with col2:
+        # Audio recorder
+        audio_bytes = st_audio_recorder(key=f"audio_{key}")
+        if audio_bytes is not None:
+            print(f"Got audio data: {type(audio_bytes)}")
+            if isinstance(audio_bytes, str):
+                print("Length:", len(audio_bytes))
+                if len(audio_bytes) > 0:
+                    transcription = transcribe_audio(audio_bytes)
+                    if transcription:
+                        st.session_state[key] = transcription
+    
     return st.session_state[key]
 
 def generate_legal_preamble(client_name, client_address, sow_date):
@@ -1012,15 +1004,37 @@ def handle_audio_response(question_key):
         text_input = st.text_input(f"{question_key}", key=f"text_{question_key}")
     
     with col2:
-        audio_recorder()  # Add the audio recorder component
+        # Pass unique key for each audio recorder instance
+        audio_recorder(key=f"audio_{question_key}")
         
     # Handle the audio data reception in your Streamlit session state
-    if 'audio_data' in st.session_state:
-        # Process audio with Google Cloud Speech-to-Text
-        audio_bytes = base64.b64decode(st.session_state.audio_data)
-        text = transcribe_audio(audio_bytes)
-        if text:
-            st.session_state[f"text_{question_key}"] = text
+    audio_key = f"audio_data_{question_key}"  # Create unique key for each question
+    if audio_key in st.session_state:
+        try:
+            # Process audio with Google Cloud Speech-to-Text
+            audio_bytes = base64.b64decode(st.session_state[audio_key])
+            text = transcribe_audio(audio_bytes)
+            if text:
+                # Update the text input with transcription
+                st.session_state[f"text_{question_key}"] = text
+                # Clear the audio data after processing
+                del st.session_state[audio_key]
+        except Exception as e:
+            st.error(f"Error processing audio: {e}")
+
+def handle_audio_data(audio_base64):
+    try:
+        # Decode base64 audio
+        audio_bytes = base64.b64decode(audio_base64)
+        st.write("Received audio data, attempting transcription...")
+        
+        # Transcribe
+        transcription = transcribe_audio(audio_bytes)
+        return transcription
+        
+    except Exception as e:
+        st.error(f"Error processing audio: {e}")
+        return None
 
 def main():
     st.markdown("""
@@ -1186,6 +1200,22 @@ def main():
         except Exception as e:
             st.error(f"An error occurred while creating the {file_format} document: {str(e)}")
 
+    if "audio_data" not in st.session_state:
+        st.session_state.audio_data = None
+
+    # Create a placeholder for the transcription
+    transcription_placeholder = st.empty()
+
+    # Add the audio recorder
+    audio_recorder("main")
+
+    # Handle the audio data when received
+    if st.session_state.audio_data:
+        transcription = handle_audio_data(st.session_state.audio_data)
+        if transcription:
+            transcription_placeholder.write(f"Transcription: {transcription}")
+        st.session_state.audio_data = None  # Clear the audio data
+
 if __name__ == "__main__":
     import sys
     # Check if running directly with Python
@@ -1198,3 +1228,4 @@ if __name__ == "__main__":
     # Normal Streamlit operation
     port = int(os.environ.get("PORT", 8080))
     main()
+    

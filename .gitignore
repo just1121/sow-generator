@@ -1,28 +1,53 @@
+# System files
 .DS_Store
+.vscode/
+__pycache__/
+
+# Environment and keys
+.env
 Speech_key.json
-asound.conf
+vertexaikey.json
+config/Speech_key.json
+
+# Virtual environments
+venv/
 bin/
+include/
+lib/
+etc/
+share/
+pyvenv.cfg
+fresh_env_newest/
+
+# Project-specific files
+asound.conf
 *.pem
 documents/
 images/
-include/
-lib/
 preprocessed_vectorstore/
-pyvenv.cfg
 sow_generator.log
 static/
 streamlit_audio_recorder/
 textfile.txt
 vectorstore.faiss/
-vertexaikey.json
-.env
-.vscode/
-__pycache__/
-etc/
-share/.env
-Speech_key.json
-fresh_env_newest/
-.env
-config/Speech_key.json
 config/vectorstore.faiss
-fresh_env_newest/
+
+# Python
+*.py[cod]
+*$py.class
+*.so
+.Python
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+*.egg-info/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Backups
+*.bak
+*.backup
+*~
