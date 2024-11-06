@@ -24,13 +24,37 @@ import json
 import datetime
 import time
 import re
-import uuid
 import streamlit.components.v1 as components
 from streamlit_audio_recorder import st_audio_recorder
 from pydub import AudioSegment
+import subprocess
+import psutil
 
 # Set page config as the first Streamlit command
 st.set_page_config(layout="wide")
+
+# Add at the start of your app
+try:
+    client = speech.SpeechClient()
+    st.write("Successfully created Speech-to-Text client")
+except Exception as e:
+    st.error(f"Error creating Speech-to-Text client: {e}")
+
+# Add near the top of your file, where other st.markdown calls are
+st.markdown("""
+    <style>
+    #recordButton_audio_client::before {
+        content: "Speak" !important;
+    }
+    #recordButton_audio_client[data-recording="true"]::before {
+        content: "Stop" !important;
+    }
+    /* Hide clear recording buttons */
+    button[kind="secondary"]:has(div:contains("Clear Recording")) {
+        display: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 def load_environment():
     load_dotenv()
@@ -627,74 +651,101 @@ async def generate_sow():
             st.error("Full error details:")
             st.exception(e)
 
-def transcribe_audio(audio_content, sample_rate_hertz=44100):
+def transcribe_audio(audio_content, sample_rate_hertz=16000):
     try:
-        # Load audio from bytes
-        audio = AudioSegment.from_file(io.BytesIO(audio_content), format='webm')
-        st.write("Successfully loaded audio")
+        if isinstance(audio_content, dict):
+            audio_data = audio_content.get('data', audio_content.get('bytes', []))
+        else:
+            audio_data = audio_content
+            
+        audio_bytes = bytearray(audio_data)
         
-        # Convert to proper format
-        audio = audio.set_frame_rate(sample_rate_hertz)
-        audio = audio.set_sample_width(2)
-        audio = audio.set_channels(1)  # Convert to mono
+        with open('input.webm', 'wb') as f:
+            f.write(audio_bytes)
+            
+        result = subprocess.run(
+            ['ffmpeg', '-y',
+             '-i', 'input.webm',
+             '-acodec', 'pcm_s16le', 
+             '-ar', str(sample_rate_hertz),
+             '-ac', '1', 'output.wav'],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
         
-        # Export as WAV in memory
-        buffer = io.BytesIO()
-        audio.export(buffer, format="wav")
-        wav_audio_content = buffer.getvalue()
-        
-        # Transcribe using Google Speech-to-Text
-        client = speech.SpeechClient()
-        audio = speech.RecognitionAudio(content=wav_audio_content)
+        with open('output.wav', 'rb') as f:
+            wav_content = f.read()
+            
+        audio = speech.RecognitionAudio(content=wav_content)
         config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
             sample_rate_hertz=sample_rate_hertz,
-            language_code="en-US",
-            enable_automatic_punctuation=True,
+            language_code="en-US"
         )
         
-        # Perform the transcription
         response = client.recognize(config=config, audio=audio)
+        transcript = response.results[0].alternatives[0].transcript
         
-        # Get the transcription text
-        transcription = ""
-        for result in response.results:
-            transcription += result.alternatives[0].transcript
-            
-        st.write("Transcription completed")
-        return transcription
+        return transcript
         
     except Exception as e:
-        st.error(f"Transcription error: {e}")
+        print(f"Error: {e}")
         return None
 
 def get_audio_input(question, key):
     if key not in st.session_state:
         st.session_state[key] = ""
     
-    # Create columns for layout
+    # Add a transcription_complete flag
+    transcription_key = f"transcription_complete_{key}"
+    if transcription_key not in st.session_state:
+        st.session_state[transcription_key] = False
+    
     col1, col2 = st.columns([3, 1])
     
     with col1:
-        # Text area instead of text input
         text_value = st.text_area(question, 
                                 key=f"text_{key}", 
                                 value=st.session_state[key],
-                                height=100)  # You can adjust height in pixels
+                                height=100)
         if text_value != st.session_state[key]:
             st.session_state[key] = text_value
     
-    with col2:
-        # Audio recorder
-        audio_bytes = st_audio_recorder(key=f"audio_{key}")
-        if audio_bytes is not None:
-            print(f"Got audio data: {type(audio_bytes)}")
-            if isinstance(audio_bytes, str):
-                print("Length:", len(audio_bytes))
-                if len(audio_bytes) > 0:
-                    transcription = transcribe_audio(audio_bytes)
-                    if transcription:
-                        st.session_state[key] = transcription
+    if st.session_state.input_method == 'Audio':
+        with col2:
+            st.write("Recording Status:")
+            status_placeholder = st.empty()
+            
+            prev_audio_key = f"prev_audio_{key}"
+            if prev_audio_key not in st.session_state:
+                st.session_state[prev_audio_key] = None
+            
+            audio_bytes = st_audio_recorder(key=f"audio_{key}")
+            
+            # Only process when audio_bytes changes from None to not None
+            if (audio_bytes is not None and 
+                st.session_state[prev_audio_key] is None and 
+                not st.session_state[transcription_key]):
+                
+                print(f"Triggering transcription for {key}")
+                status_placeholder.info("Processing audio...")
+                transcription = transcribe_audio(audio_bytes)
+                
+                if transcription:
+                    st.session_state[key] = transcription
+                    st.session_state[transcription_key] = True
+                    status_placeholder.success("Transcription complete!")
+                    st.rerun()
+                else:
+                    status_placeholder.error("Transcription failed")
+            
+            # Reset transcription flag after rerun
+            if st.session_state[transcription_key]:
+                st.session_state[transcription_key] = False
+            
+            # Update previous audio state
+            st.session_state[prev_audio_key] = audio_bytes
     
     return st.session_state[key]
 
@@ -910,131 +961,17 @@ async def test_two_tier_search():
         st.write(doc.page_content[:500])
         st.write("-" * 80)
 
-def audio_recorder(key):
-    audio_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <script src="https://streamlit.io/static/streamlit.js"></script>
-    </head>
-    <body>
-        <div class="audio-recorder">
-            <button id="recordButton_{key}" onclick="toggleRecording('{key}')">Start Recording</button>
-            <span id="timer_{key}">00:00</span>
-            <div id="audioStatus_{key}"></div>
-        </div>
-
-        <script>
-            let mediaRecorder_{key};
-            let audioChunks_{key} = [];
-            let isRecording_{key} = false;
-            let startTime_{key};
-            let timerInterval_{key};
-
-            function updateTimer_{key}() {{
-                const elapsed = new Date() - startTime_{key};
-                const seconds = Math.floor(elapsed / 1000);
-                const minutes = Math.floor(seconds / 60);
-                document.getElementById('timer_{key}').textContent = 
-                    `${{minutes.toString().padStart(2, '0')}}:${{(seconds % 60).toString().padStart(2, '0')}}`;
-            }}
-
-            async function toggleRecording(key) {{
-                const button = document.getElementById('recordButton_' + key);
-                const status = document.getElementById('audioStatus_' + key);
-                
-                if (!isRecording_{key}) {{
-                    try {{
-                        const stream = await navigator.mediaDevices.getUserMedia({{ audio: true }});
-                        mediaRecorder_{key} = new MediaRecorder(stream);
-                        audioChunks_{key} = [];
-                        
-                        mediaRecorder_{key}.ondataavailable = (event) => {{
-                            audioChunks_{key}.push(event.data);
-                        }};
-                        
-                        mediaRecorder_{key}.onstop = async () => {{
-                            const audioBlob = new Blob(audioChunks_{key}, {{ type: 'audio/webm' }});
-                            const reader = new FileReader();
-                            reader.onload = () => {{
-                                const base64data = reader.result.split(',')[1];
-                                // Send to Python
-                                window.parent.postMessage({{
-                                    type: 'audio_data',
-                                    key: key,
-                                    data: base64data
-                                }}, '*');
-                                status.textContent = 'Processing audio...';
-                            }};
-                            reader.readAsDataURL(audioBlob);
-                        }};
-                        
-                        mediaRecorder_{key}.start(200);
-                        isRecording_{key} = true;
-                        button.textContent = 'Stop Recording';
-                        button.style.backgroundColor = '#ff4444';
-                        status.textContent = 'Recording...';
-                        
-                        startTime_{key} = new Date();
-                        timerInterval_{key} = setInterval(updateTimer_{key}, 1000);
-                        
-                    }} catch (error) {{
-                        console.error('Error:', error);
-                        status.textContent = 'Error accessing microphone';
-                    }}
-                }} else {{
-                    mediaRecorder_{key}.stop();
-                    isRecording_{key} = false;
-                    button.textContent = 'Start Recording';
-                    button.style.backgroundColor = '#4CAF50';
-                    clearInterval(timerInterval_{key});
-                }}
-            }}
-        </script>
-    </body>
-    </html>
-    """
+def test_transcription_robustness():
+    print("\n=== Transcription Test Results ===")
+    print("Input WebM size:", os.path.getsize('input.webm') if os.path.exists('input.webm') else "File not found")
+    print("Output WAV size:", os.path.getsize('output.wav') if os.path.exists('output.wav') else "File not found")
     
-    components.html(audio_html, height=100)
-
-def handle_audio_response(question_key):
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        text_input = st.text_input(f"{question_key}", key=f"text_{question_key}")
-    
-    with col2:
-        # Pass unique key for each audio recorder instance
-        audio_recorder(key=f"audio_{question_key}")
-        
-    # Handle the audio data reception in your Streamlit session state
-    audio_key = f"audio_data_{question_key}"  # Create unique key for each question
-    if audio_key in st.session_state:
-        try:
-            # Process audio with Google Cloud Speech-to-Text
-            audio_bytes = base64.b64decode(st.session_state[audio_key])
-            text = transcribe_audio(audio_bytes)
-            if text:
-                # Update the text input with transcription
-                st.session_state[f"text_{question_key}"] = text
-                # Clear the audio data after processing
-                del st.session_state[audio_key]
-        except Exception as e:
-            st.error(f"Error processing audio: {e}")
-
-def handle_audio_data(audio_base64):
+    # Add to transcribe_audio function:
     try:
-        # Decode base64 audio
-        audio_bytes = base64.b64decode(audio_base64)
-        st.write("Received audio data, attempting transcription...")
-        
-        # Transcribe
-        transcription = transcribe_audio(audio_bytes)
-        return transcription
-        
-    except Exception as e:
-        st.error(f"Error processing audio: {e}")
-        return None
+        print("Speech confidence score:", response.results[0].alternatives[0].confidence)
+        print("Word-level timing:", response.results[0].alternatives[0].words)
+    except:
+        pass
 
 def main():
     st.markdown("""
@@ -1206,9 +1143,6 @@ def main():
     # Create a placeholder for the transcription
     transcription_placeholder = st.empty()
 
-    # Add the audio recorder
-    audio_recorder("main")
-
     # Handle the audio data when received
     if st.session_state.audio_data:
         transcription = handle_audio_data(st.session_state.audio_data)
@@ -1228,4 +1162,3 @@ if __name__ == "__main__":
     # Normal Streamlit operation
     port = int(os.environ.get("PORT", 8080))
     main()
-    
