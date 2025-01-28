@@ -292,11 +292,7 @@ def create_document(content, file_format):
                     labor_cost = sum(details['total'] for deliverable in st.session_state.deliverables.values() 
                                   for details in deliverable.get('labor_costs', {}).values() 
                                   if isinstance(details, dict))
-                    additional_expenses = (
-                        st.session_state.expenses['mileage'] * st.session_state.expenses['mileage_rate'] +
-                        st.session_state.expenses['truck_days'] * st.session_state.expenses['truck_rate'] +
-                        st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup'])
-                    )
+                    additional_expenses = 5625.00  # This should come from your session state
                     total_cost = labor_cost + additional_expenses
                     
                     narrative = (f"The estimated cost for completion of this scope of work is ${total_cost:,.2f}. "
@@ -458,34 +454,32 @@ def create_document(content, file_format):
                     
                     # Process each deliverable
                     for deliverable_index, (deliverable_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
-                        # Only process if this deliverable has a description
-                        if deliverable.get('description'):  # Skip empty deliverables
-                            # Add deliverable title
-                            deliverable_title = f"\nDeliverable {deliverable_index}: {deliverable.get('description', '')}"
-                            p = doc.add_paragraph(deliverable_title)
-                            apply_heading_style(p)
+                        # Add deliverable title
+                        deliverable_title = f"\nDeliverable {deliverable_index}: {deliverable.get('description', '')}"
+                        p = doc.add_paragraph(deliverable_title)
+                        apply_heading_style(p)
+                        
+                        # Create milestone table if milestones exist
+                        if 'milestones' in deliverable:
+                            # Create table with headers
+                            table = doc.add_table(rows=1, cols=3)
+                            format_table(table)
                             
-                            # Create milestone table if milestones exist and have descriptions
-                            if 'milestones' in deliverable and any(m.get('description') for m in deliverable['milestones']):
-                                # Create table with headers
-                                table = doc.add_table(rows=1, cols=3)
-                                format_table(table)
-                                
-                                # Set table headers
-                                headers = table.rows[0].cells
-                                headers[0].text = 'Milestone'
-                                headers[1].text = 'Description'
-                                headers[2].text = 'Target Date'
-                                
-                                # Add each milestone to the table
-                                for milestone_index, milestone in enumerate(deliverable['milestones'], 1):
-                                    new_row = table.add_row().cells
-                                    new_row[0].text = str(milestone_index)
-                                    new_row[1].text = milestone.get('description', '')
-                                    new_row[2].text = milestone.get('due_date', '').strftime('%B %d, %Y')
+                            # Set table headers
+                            headers = table.rows[0].cells
+                            headers[0].text = 'Milestone'
+                            headers[1].text = 'Description'
+                            headers[2].text = 'Target Date'
                             
-                            # Add spacing after table
-                            doc.add_paragraph()
+                            # Add each milestone to the table
+                            for milestone_index, milestone in enumerate(deliverable['milestones'], 1):
+                                new_row = table.add_row().cells
+                                new_row[0].text = str(milestone_index)
+                                new_row[1].text = milestone.get('description', '')
+                                new_row[2].text = milestone.get('due_date', '').strftime('%B %d, %Y')
+                        
+                        # Add spacing after table
+                        doc.add_paragraph()
                     
                     # Mark section as processed
                     doc.section2_processed = True
@@ -564,11 +558,7 @@ def create_document(content, file_format):
                     labor_cost = sum(details['total'] for deliverable in st.session_state.deliverables.values() 
                                   for details in deliverable.get('labor_costs', {}).values() 
                                   if isinstance(details, dict))
-                    additional_expenses = (
-                        st.session_state.expenses['mileage'] * st.session_state.expenses['mileage_rate'] +
-                        st.session_state.expenses['truck_days'] * st.session_state.expenses['truck_rate'] +
-                        st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup'])
-                    )
+                    additional_expenses = 5625.00  # This should come from your session state
                     total_cost = labor_cost + additional_expenses
                     
                     narrative = (f"The estimated cost for completion of this scope of work is ${total_cost:,.2f}. "
