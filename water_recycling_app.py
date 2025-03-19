@@ -21,7 +21,20 @@ from pathlib import Path
 import asyncio
 from functools import partial
 from streamlit import cache_data, cache_resource
-from google.cloud import speech
+
+# Add error handling for speech functionality
+try:
+    from google.cloud import speech
+    speech_available = True
+except ImportError:
+    speech_available = False
+    st.warning("Speech-to-text functionality is not available in this deployment")
+    # Create a dummy class if needed
+    class DummySpeech:
+        def __init__(self):
+            pass
+    speech = DummySpeech()
+
 import tempfile
 import numpy as np
 import base64
@@ -202,10 +215,13 @@ def initialize_session_state():
             }
 
 # Add at the start of your app
-try:
-    client = speech.SpeechClient()
-except Exception as e:
-    st.error(f"Error creating Speech-to-Text client: {e}")
+client = None
+if speech_available:
+    try:
+        client = speech.SpeechClient()
+    except Exception as e:
+        st.error(f"Error creating Speech-to-Text client: {e}")
+        speech_available = False
 
 # Add near the top of your file, where other st.markdown calls are
 st.markdown("""
@@ -1411,6 +1427,10 @@ def create_entries_record():
         return None
 
 def transcribe_audio(audio_content, sample_rate_hertz=16000):
+    if not speech_available:
+        st.warning("Voice recording functionality is disabled in this deployment")
+        return None
+        
     try:
         if isinstance(audio_content, dict):
             audio_data = audio_content.get('data', audio_content.get('bytes', []))
@@ -1472,36 +1492,39 @@ def get_audio_input(question, key):
             st.session_state[key] = text_value
     
     if st.session_state.input_method == 'Audio':
-        with col2:
-            status_placeholder = st.empty()
-            prev_audio_key = f"prev_audio_{key}"
-            if prev_audio_key not in st.session_state:
-                st.session_state[prev_audio_key] = None
-            
-            audio_bytes = st_audio_recorder(key=f"audio_{key}")
-            
-            # Only process when audio_bytes changes from None to not None
-            if (audio_bytes is not None and 
-                st.session_state[prev_audio_key] is None and 
-                not st.session_state[transcription_key]):
-            
-                status_placeholder.info("Processing audio...")
-                transcription = transcribe_audio(audio_bytes)
+        if not speech_available:
+            st.warning("Voice recording functionality is disabled in this deployment")
+        else:
+            with col2:
+                status_placeholder = st.empty()
+                prev_audio_key = f"prev_audio_{key}"
+                if prev_audio_key not in st.session_state:
+                    st.session_state[prev_audio_key] = None
                 
-                if transcription:
-                    st.session_state[key] = transcription
-                    st.session_state[transcription_key] = True
-                    status_placeholder.success("Transcription complete!")
-                    st.rerun()
-                else:
-                    status_placeholder.error("Transcription failed")
-            
-            # Reset transcription flag after rerun
-            if st.session_state[transcription_key]:
-                st.session_state[transcription_key] = False
-            
-            # Update previous audio state
-            st.session_state[prev_audio_key] = audio_bytes
+                audio_bytes = st_audio_recorder(key=f"audio_{key}")
+                
+                # Only process when audio_bytes changes from None to not None
+                if (audio_bytes is not None and 
+                    st.session_state[prev_audio_key] is None and 
+                    not st.session_state[transcription_key]):
+                
+                    status_placeholder.info("Processing audio...")
+                    transcription = transcribe_audio(audio_bytes)
+                    
+                    if transcription:
+                        st.session_state[key] = transcription
+                        st.session_state[transcription_key] = True
+                        status_placeholder.success("Transcription complete!")
+                        st.rerun()
+                    else:
+                        status_placeholder.error("Transcription failed")
+                
+                # Reset transcription flag after rerun
+                if st.session_state[transcription_key]:
+                    st.session_state[transcription_key] = False
+                
+                # Update previous audio state
+                st.session_state[prev_audio_key] = audio_bytes
     
     return st.session_state[key]
 
