@@ -34,9 +34,13 @@ from streamlit_audio_recorder import st_audio_recorder
 from pydub import AudioSegment
 import subprocess
 from google.cloud import storage
+from docx.enum.table import WD_TABLE_ALIGNMENT
 
 # Set page config as the first Streamlit command
 st.set_page_config(layout="wide")
+
+# Initialize section2_counter at the start of the script
+section2_counter = 0
 
 # # Add counter here, after imports but before any functions
 # section2_counter = 0
@@ -118,7 +122,6 @@ def initialize_session_state():
                     {"id": 6, "question": "What is the technical approach to this project?", "type": "text", "answer": ""},
                     {"id": 7, "question": "What equipment is required?", "type": "text", "answer": ""},
                     {"id": 8, "question": "Why is that equipment important and unique?", "type": "text", "answer": ""},
-                    {"id": 9, "question": "What is the proposed timeline for project completion?", "type": "text", "answer": ""}
                 ],
                 
                 'project_details': {
@@ -262,8 +265,9 @@ def create_document(content, file_format):
                     run.font.size = Pt(12)
             
             # Initialize flags before processing paragraphs
-            in_section_5 = False
             in_section_2 = False
+            in_section_3 = False
+            in_section_5 = False
             
             for paragraph in paragraphs[1:]:
                 # Skip content if we're in section 2 and see markdown
@@ -313,20 +317,18 @@ def create_document(content, file_format):
                     # Add deliverable labor cost tables
                     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                         if isinstance(deliverable.get('labor_costs'), dict):
-                            p = doc.add_paragraph(f"Deliverable {i}")
+                            p = doc.add_paragraph(f"Deliverable {i}: {deliverable.get('description', '')}")
                             apply_heading_style(p)
-                            
-                            p = doc.add_paragraph(f"Description: {deliverable.get('description', '')}")
-                            apply_body_style(p)
                             
                             table = doc.add_table(rows=1, cols=5)
                             format_table(table)
+                            table.alignment = WD_TABLE_ALIGNMENT.RIGHT  # Align table to the right
                             header_cells = table.rows[0].cells
-                            header_cells[0].text = 'Role'
-                            header_cells[1].text = 'Description'
-                            header_cells[2].text = 'Rate'
-                            header_cells[3].text = 'Hours'
-                            header_cells[4].text = 'Subtotal'
+                            header_cells[0].paragraphs[0].add_run('Role').bold = True
+                            header_cells[1].paragraphs[0].add_run('Description').bold = True
+                            header_cells[2].paragraphs[0].add_run('Rate').bold = True
+                            header_cells[3].paragraphs[0].add_run('Hours').bold = True
+                            header_cells[4].paragraphs[0].add_run('Subtotal').bold = True
                             
                             has_labor_entries = False
                             for role, details in deliverable['labor_costs'].items():
@@ -341,8 +343,11 @@ def create_document(content, file_format):
                             
                             if has_labor_entries:
                                 total_deliverable_cost = sum(details['total'] for details in deliverable['labor_costs'].values() if isinstance(details, dict))
-                                doc.add_paragraph(f"Total Cost for Deliverable: ${total_deliverable_cost:,.2f}")
-                                doc.add_paragraph()
+                                doc.add_paragraph()  # Add space before total
+                                p = doc.add_paragraph()
+                                p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                                p.add_run("Total Labor Cost for Deliverable: ")
+                                p.add_run(f"${total_deliverable_cost:,.2f}").bold = True
                     
                     # Add Additional Expenses table
                     p = doc.add_paragraph("Additional Expenses")
@@ -351,11 +356,11 @@ def create_document(content, file_format):
                     table = doc.add_table(rows=1, cols=3)
                     format_table(table)
                     
-                    # Set headers
+                    # Set headers for Additional Expenses table
                     header_cells = table.rows[0].cells
-                    header_cells[0].text = 'Expense Type'
-                    header_cells[1].text = 'Details'
-                    header_cells[2].text = 'Amount'
+                    header_cells[0].paragraphs[0].add_run('Expense Type').bold = True
+                    header_cells[1].paragraphs[0].add_run('Details').bold = True
+                    header_cells[2].paragraphs[0].add_run('Amount').bold = True
                     
                     # Add expense rows
                     expenses = st.session_state.expenses
@@ -393,7 +398,8 @@ def create_document(content, file_format):
                     # Add rows for expenses
                     row_cells = table.add_row().cells
                     row_cells[0].text = 'Additional Costs'
-                    row_cells[1].text = f'${additional_expenses:,.2f}'
+                    row_cells[1].text = ''  # Empty details column
+                    row_cells[2].text = f'${additional_expenses:,.2f}'  # Amount in last column
                     
                     # Add Project Totals table
                     p = doc.add_paragraph("Project Totals")
@@ -402,8 +408,8 @@ def create_document(content, file_format):
                     table = doc.add_table(rows=1, cols=2)
                     format_table(table)
                     header_cells = table.rows[0].cells
-                    header_cells[0].text = 'Category'
-                    header_cells[1].text = 'Amount'
+                    header_cells[0].paragraphs[0].add_run('Category').bold = True
+                    header_cells[1].paragraphs[0].add_run('Amount').bold = True
                     
                     # Add rows for totals
                     row_cells = table.add_row().cells
@@ -443,115 +449,108 @@ def create_document(content, file_format):
                     continue
 
                 elif "2. Description of Deliverables" in paragraph:
-                    in_section_2 = True  # Set flag when entering Section 2
-                    
-                    # Skip if we've already processed this section
+                    # Check processed flag immediately
                     if hasattr(doc, 'section2_processed'):
                         continue
+                        
+                    in_section_2 = True  # Set flag when entering Section 2
                     
                     # Add section header
                     p = doc.add_paragraph("2. Description of Deliverables")
                     apply_heading_style(p)
                     
+                    # Add intro text
                     p = doc.add_paragraph("Contractor will provide Deliverables under this SOW as described here:")
                     apply_body_style(p)
                     
-                    # Process each deliverable
-                    for deliverable_index, (deliverable_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
-                        # Only process if this deliverable has a description
-                        if deliverable.get('description'):  # Skip empty deliverables
-                            # Add deliverable title
-                            deliverable_title = f"\nDeliverable {deliverable_index}: {deliverable.get('description', '')}"
-                            p = doc.add_paragraph(deliverable_title)
-                            apply_heading_style(p)
+                    # Format each deliverable with milestones
+                    for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
+                        if deliverable.get('description', '').strip():
+                            deliverable_text = f"Deliverable {i} {deliverable['description']}"
                             
-                            # Create milestone table if milestones exist and have descriptions
-                            if 'milestones' in deliverable and any(m.get('description') for m in deliverable['milestones']):
-                                # Create table with headers
-                                table = doc.add_table(rows=1, cols=3)
-                                format_table(table)
+                            # Add milestone information if exists
+                            if deliverable.get('milestones') and len(deliverable['milestones']) > 0:
+                                milestone_count = sum(1 for m in deliverable['milestones'] if m.get('description'))
                                 
-                                # Set table headers
-                                headers = table.rows[0].cells
-                                headers[0].text = 'Milestone'
-                                headers[1].text = 'Description'
-                                headers[2].text = 'Target Date'
-                                
-                                # Add each milestone to the table
-                                for milestone_index, milestone in enumerate(deliverable['milestones'], 1):
-                                    new_row = table.add_row().cells
-                                    new_row[0].text = str(milestone_index)
-                                    new_row[1].text = milestone.get('description', '')
-                                    new_row[2].text = milestone.get('due_date', '').strftime('%B %d, %Y')
+                                if milestone_count == 1:
+                                    # Single milestone format
+                                    milestone = next(m for m in deliverable['milestones'] if m.get('description'))
+                                    deliverable_text += f" has one milestone, {milestone.get('description')}."
+                                else:
+                                    # Multiple milestones format
+                                    deliverable_text += f" has {milestone_count} milestones"
                             
-                            # Add spacing after table
-                            doc.add_paragraph()
-                    
-                    # Mark section as processed
-                    doc.section2_processed = True
+                            # Add period if not already present
+                            if not deliverable_text.endswith('.'):
+                                deliverable_text += '.'
+                                
+                            p = doc.add_paragraph(deliverable_text)
+                            apply_body_style(p)
+
+                # Add comprehensive skip conditions
+                elif in_section_2 and any(marker in paragraph for marker in [
+                    "Contractor will provide Deliverables under this SOW as described here",
+                    "**2. Description of Deliverables**",
+                    "**Deliverable",
+                    "• Deliverable",
+                    "- Deliverable",
+                    "| Milestone |",
+                    "|-----------|",
+                    "| Description |",
+                    "| Target Date |"
+                ]):
                     continue
 
                 elif "3. Work Schedule" in paragraph:
-    
+                    # Check processed flag immediately
+                    if hasattr(doc, 'section3_processed'):
+                        continue
+                        
+                    in_section_3 = True  # Set flag when entering Section 3
+                    
+                    # Add section header
                     p = doc.add_paragraph("3. Work Schedule")
                     apply_heading_style(p)
 
-                    # Get completion date the same way as generate_section_3
-                    completion_date = get_answer('general_info', 'What is the proposed timeline for project completion?')
+                    # Get completion date directly from session state
+                    completion_date = st.session_state.get('expected_completion_date')
                     
-                    # Format completion date
                     try:
-                        clean_date = completion_date.lower().replace('st', '').replace('nd', '').replace('rd', '').replace('th', '')
-                        parsed_date = datetime.datetime.strptime(clean_date, '%b %d %Y')
-                        formatted_completion_date = parsed_date.strftime('%B %d, %Y')
-                    except:
-                        formatted_completion_date = completion_date
-    
-                    # Add the introductory text BEFORE the deliverable schedule
+                        formatted_completion_date = completion_date.strftime('%B %d, %Y')
+                    except Exception as e:
+                        st.error(f"Error formatting completion date: {str(e)}")
+                        formatted_completion_date = str(completion_date)
+
+                    # Add the introductory text
                     client_name = st.session_state.questions['client']["answer"].strip()
                     intro_text = f"Contractor will conduct the Services and provide the Deliverables to {client_name} by {formatted_completion_date}. Specific deliverables and their projected timing are included below."
                     p = doc.add_paragraph(intro_text)
                     apply_body_style(p)
 
-                    # Add Deliverable Schedule section
-                    p = doc.add_paragraph("Deliverable Schedule:")
-                    apply_heading_style(p)
-
-                    # Add each deliverable's schedule
+                    # Process each deliverable with bullet points and target dates
                     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
-                        p = doc.add_paragraph(f"Deliverable {i}: {deliverable.get('description', '')}")
-                        apply_heading_style(p)
-            
-                        if 'milestones' in deliverable:
-                            table = doc.add_table(rows=1, cols=3)
-                            format_table(table)
-                            
-                            header_cells = table.rows[0].cells
-                            header_cells[0].text = 'Milestone'
-                            header_cells[1].text = 'Description'
-                            header_cells[2].text = 'Target Date'
-                            
-                            for j, milestone in enumerate(deliverable['milestones'], 1):
-                                row_cells = table.add_row().cells
-                                row_cells[0].text = str(j)  # Just the number
-                                row_cells[1].text = milestone.get('description', '')
-                                row_cells[2].text = milestone.get('due_date', '').strftime('%B %d, %Y')
-                        
-                        doc.add_paragraph()  # Add spacing after table
+                        if deliverable.get('description') and deliverable.get('target_date'):
+                            p = doc.add_paragraph()
+                            p.style = 'List Bullet'  # This gives us the bullet point (•) format
+                            target_date = deliverable['target_date'].strftime('%B %d, %Y')
+                            p.add_run(f"{deliverable.get('description')} by {target_date}")
 
-                    # Add final completion date without markdown
-                    p = doc.add_paragraph("Project End Date: " + formatted_completion_date)
-                    apply_body_style(p)
-
-                    # Skip processing any more content in Section 3
+                    # Mark section as processed
+                    doc.section3_processed = True
                     continue
 
-                # Skip duplicate content that appears in the original paragraph
+                # Skip any content that would create duplicate entries
                 elif any(skip_text in paragraph for skip_text in [
                     "Contractor will conduct the Services and provide the Deliverables",
-                    "**Project End Date:**",
-                    "Project End Date:"
+                    "Deliverable Schedule:",
+                    "Project End Date:",
+                    "- "  # This will catch all dash-formatted lines
                 ]):
+                    continue
+
+                elif "4. Term of this SOW" in paragraph or "**4. Term of this SOW**" in paragraph:
+                    p = doc.add_paragraph("4. Term of this SOW")
+                    apply_heading_style(p)
                     continue
 
                 elif "5. Basis for Compensation" in paragraph:
@@ -594,10 +593,11 @@ def create_document(content, file_format):
                             table = doc.add_table(rows=1, cols=4)
                             format_table(table)
                             header_cells = table.rows[0].cells
-                            header_cells[0].text = 'Role and Description'
-                            header_cells[1].text = 'Rate'
-                            header_cells[2].text = 'Hours'
-                            header_cells[3].text = 'Subtotal'
+                            header_cells[0].paragraphs[0].add_run('Role').bold = True
+                            header_cells[1].paragraphs[0].add_run('Description').bold = True
+                            header_cells[2].paragraphs[0].add_run('Rate').bold = True
+                            header_cells[3].paragraphs[0].add_run('Hours').bold = True
+                            header_cells[4].paragraphs[0].add_run('Subtotal').bold = True
                             
                             has_labor_entries = False
                             for role, details in deliverable['labor_costs'].items():
@@ -622,8 +622,8 @@ def create_document(content, file_format):
                     table = doc.add_table(rows=1, cols=2)
                     format_table(table)
                     header_cells = table.rows[0].cells
-                    header_cells[0].text = 'Category'
-                    header_cells[1].text = 'Amount'
+                    header_cells[0].paragraphs[0].add_run('Category').bold = True
+                    header_cells[1].paragraphs[0].add_run('Amount').bold = True
                     
                     # Add rows for expenses
                     row_cells = table.add_row().cells
@@ -637,8 +637,8 @@ def create_document(content, file_format):
                     table = doc.add_table(rows=1, cols=2)
                     format_table(table)
                     header_cells = table.rows[0].cells
-                    header_cells[0].text = 'Category'
-                    header_cells[1].text = 'Amount'
+                    header_cells[0].paragraphs[0].add_run('Category').bold = True
+                    header_cells[1].paragraphs[0].add_run('Amount').bold = True
                     
                     # Add rows for totals
                     row_cells = table.add_row().cells
@@ -1075,6 +1075,36 @@ def generate_sow():  # no longer async
             # Generate legal preamble
             legal_preamble = generate_legal_preamble(client_name, client_address, effective_date, st.session_state.master_terms_date)
 
+            # Format deliverables in natural language
+            deliverables_text = "\n\n**2. Description of Deliverables**\n\n"
+            deliverables_text += "Contractor will provide Deliverables under this SOW as described here\n\n"
+            
+            for deliverable_index, (deliverable_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
+                if deliverable.get('description'):
+                    # Start with deliverable description
+                    deliverable_text = f"- Deliverable {deliverable_index} {deliverable.get('description')}"
+                    
+                    # Add milestone information if exists
+                    if 'milestones' in deliverable and any(m.get('description') for m in deliverable['milestones']):
+                        milestone_count = sum(1 for m in deliverable['milestones'] if m.get('description'))
+                        
+                        if milestone_count == 1:
+                            # Single milestone format
+                            milestone = next(m for m in deliverable['milestones'] if m.get('description'))
+                            deliverable_text += f" has one milestone, {milestone.get('description')}."
+                        else:
+                            # Multiple milestones format
+                            deliverable_text += f" has {milestone_count} milestones\n"
+                            for milestone in deliverable['milestones']:
+                                if milestone.get('description'):
+                                    deliverable_text += f"  - {milestone.get('description')}"
+                    
+                    # Add period if not already present and no milestones were added
+                    if not deliverable_text.endswith('.'):
+                        deliverable_text += '.'
+                        
+                    deliverables_text += deliverable_text + "\n"
+
             prompt = f"""
             As a specialist for Recovered Water Solutions, please generate a Statement of Work (SOW).
             
@@ -1082,8 +1112,6 @@ def generate_sow():  # no longer async
 
 1. Format Requirements:
 - MUST contain exactly 3 paragraphs of flowing narrative
-- Do not include any headings or section titles
-- Do not include "Executive Summary" in your response
 - Professional business story format
 - Active voice with clear transitions
 
@@ -1165,7 +1193,7 @@ Third Paragraph:
                 services_content = re.sub(r'Technical\s+Approach\s*:', '\nTechnical Approach:', services_content)
                 
                 # Generate deliverables section from user inputs instead of model
-                deliverables_content = format_deliverables_section()
+                deliverables_content = deliverables_text
                 
                 # Standardize the services content
                 services_content = standardize_text(services_content)
@@ -1188,7 +1216,6 @@ Third Paragraph:
                     f"{exec_summary}\n\n"
                     f"**1. Description of Services**\n\n"
                     f"{services_content}\n\n"
-                    f"**2. Description of Deliverables**\n\n" 
                     f"{deliverables_content}\n\n"
                     f"{sections_3_to_9}"
                 )
@@ -1284,13 +1311,15 @@ def create_entries_record():
                     # Only add labor costs table if there are labor costs
                     if deliverable.get('labor_costs'):
                         doc.add_heading('Labor Costs', level=3)
-                        table = doc.add_table(rows=1, cols=4)
-                        format_table(table)  # Add this line instead
+                        table = doc.add_table(rows=1, cols=5)
+                        format_table(table)
                         header_cells = table.rows[0].cells
-                        header_cells[0].text = 'Role and Description'
-                        header_cells[1].text = 'Rate'
-                        header_cells[2].text = 'Hours'
-                        header_cells[3].text = 'Subtotal'
+                        # Make headers bold
+                        header_cells[0].paragraphs[0].add_run('Role').bold = True
+                        header_cells[1].paragraphs[0].add_run('Description').bold = True
+                        header_cells[2].paragraphs[0].add_run('Rate').bold = True
+                        header_cells[3].paragraphs[0].add_run('Hours').bold = True
+                        header_cells[4].paragraphs[0].add_run('Subtotal').bold = True
                         
                         # Only show roles with hours > 0
                         has_labor_entries = False
@@ -1306,8 +1335,9 @@ def create_entries_record():
                         
                         if has_labor_entries:
                             total_deliverable_cost = sum(details['total'] for details in deliverable['labor_costs'].values())
-                            doc.add_paragraph(f"Total Cost for Deliverable: ${total_deliverable_cost:,.2f}")
-                            doc.add_paragraph()
+                            doc.add_paragraph()  # Add space before total
+                            p = doc.add_paragraph("Total Labor Cost for Deliverable: ")
+                            p.add_run(f"${total_deliverable_cost:,.2f}").bold = True
 
         # Technical Requirements section
         tech_req = st.session_state.get('tech_req', 'No')
@@ -1484,73 +1514,88 @@ def format_deliverables_section():
     """Generate Description of Deliverables section"""
     content = []
     
+    # Check if deliverables exist
+    if not st.session_state.deliverables:
+        return "No deliverables have been defined.\n"
+    
     # Add section header
     content.append("Contractor will provide Deliverables under this SOW as described here:\n")
     
     # Format each deliverable
     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
+        if deliverable.get('description', '').strip():  # Only include if description exists
+            content.append(f"\n**Deliverable {i}: {deliverable['description']}**")
             
-        content.append(f"\n**Deliverable {i}: {deliverable.get('description', '')}**")
-        
-        # Format milestones in table
-        if deliverable.get('milestones'):
-            content.append("\n| Milestone | Description | Target Date |")
-            content.append("|-----------|-------------|-------------|")
+            # Add milestone table if milestones exist
+            if deliverable.get('milestones') and len(deliverable['milestones']) > 0:
+                content.append("\n| Milestone | Description | Target Date |")
+                content.append("|-----------|-------------|-------------|")
+                
+                for j, milestone in enumerate(deliverable['milestones'], 1):
+                    content.append(
+                        f"| {j} | {milestone.get('description', '')} | "
+                        f"{milestone['due_date'].strftime('%B %d, %Y')} |"
+                    )
+                content.append("")  # Add spacing after table
             
-            for j, milestone in enumerate(deliverable['milestones'], 1):
-                content.append(
-                    f"| {j} | {milestone.get('description', '')} | "
-                    f"{milestone['due_date'].strftime('%B %d, %Y')} |"
-                )
-            content.append("")
-        
-        # Add equipment and services if present
-        if deliverable.get('equipment_provided'):
-            content.append(f"\n**Equipment Provided:**\n{deliverable['equipment_provided']}")
-        if deliverable.get('additional_services'):
-            content.append(f"\n**Additional Services:**\n{deliverable['additional_services']}")
+            # Add equipment and services if present
+            if deliverable.get('equipment_provided'):
+                content.append(f"\n**Equipment Provided:**\n{deliverable['equipment_provided']}")
+            if deliverable.get('additional_services'):
+                content.append(f"\n**Additional Services:**\n{deliverable['additional_services']}")
     
     return "\n".join(content)
 
 def generate_section_3():
     """Generate Work Schedule section with improved formatting"""
+    # Retrieve and strip the client name
     client_name = st.session_state.questions['client']["answer"].strip()
-    completion_date = get_answer('general_info', 'What is the proposed timeline for project completion?')
     
+    # Attempt to retrieve the completion date from session state
+    completion_date = st.session_state.get('expected_completion_date', None)
+
+    # Check if completion_date is empty
+    if not completion_date:
+        st.error("Completion date is not provided.")
+        return
+
     # Format completion date
     try:
-        clean_date = completion_date.lower().replace('st', '').replace('nd', '').replace('rd', '').replace('th', '')
-        parsed_date = datetime.datetime.strptime(clean_date, '%b %d %Y')
-        formatted_completion_date = parsed_date.strftime('%B %d, %Y')
-    except:
-        formatted_completion_date = completion_date
+        formatted_completion_date = completion_date.strftime('%B %d, %Y')
+    except Exception as e:
+        st.error(f"Error formatting completion date: {str(e)}")
+        return
 
-    content = [
-        "**3. Work Schedule**\n",
-        f"Contractor will conduct the Services and provide the Deliverables to {client_name} "
-        f"by {formatted_completion_date}. Specific deliverables and their projected timing "
-        f"are included below.\n",
-        "**Deliverable Schedule:**\n"
-    ]
+    # Build the section as a string
+    section = "**3. Work Schedule**\n\n"
     
-    # Format each deliverable's schedule in a structured table
-    for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
-        content.append(f"\n**Deliverable {i}: {deliverable.get('description', '')}**")
+    section += (f"Contractor will conduct the Services and provide the Deliverables to {client_name} "
+               f"by {formatted_completion_date}. Specific deliverables and their projected timing "
+               f"are included below.\n\n")
+    
+    section += "**Deliverable Schedule:**\n\n"
+
+    # Add deliverables to the schedule
+    if st.session_state.deliverables:
+        filled_count = 0
+        for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
+            description_filled = bool(deliverable.get('description', '').strip())
+            # Maybe you want to check deliverable["target_date"] if it's mandatory
+            if description_filled:
+                filled_count += 1
+                target_date = deliverable.get('target_date')
+                if target_date:
+                    date_str = target_date.strftime('%B %d, %Y')
+                    section += f"- {deliverable['description']} by {date_str}\n"
+                else:
+                    section += f"- {deliverable['description']} (No date provided)\n"
         
-        if deliverable.get('milestones'):
-            content.append("\n| Milestone | Description | Target Date |")
-            content.append("|-----------|-------------|-------------|")
-            
-            for j, milestone in enumerate(deliverable['milestones'], 1):
-                content.append(
-                    f"| {j} | {milestone.get('description', '')} | "
-                    f"{milestone['due_date'].strftime('%B %d, %Y')} |"
-                )
-            content.append("")
-    
-    content.append(f"\n**Project End Date:** {formatted_completion_date}")
-    
-    return "\n".join(content)
+        if filled_count == 0:
+            section += "No work schedule has been defined.\n"
+    else:
+        section += "No work schedule has been defined.\n"
+
+    return section
 
 def generate_section_4():
     """Generate Section 4 with timeline data from session state"""
@@ -1559,27 +1604,24 @@ def generate_section_4():
     effective_date = st.session_state.effective_date
     
     # Get and standardize completion date
-    completion_date = get_answer('general_info', 'What is the proposed timeline for project completion?')
+    completion_date = st.session_state.get('expected_completion_date', None)
     
-    # Try to parse and standardize the completion date
+    # Check if completion_date is empty
+    if not completion_date:
+        st.error("Completion date is not provided.")
+        return
+
+    # Format completion date
     try:
-        # Remove ordinal indicators and clean the date string
-        clean_date = completion_date.lower().replace('st', '').replace('nd', '').replace('rd', '').replace('th', '')
-        # Parse the date - add more formats if needed
-        for fmt in ['%b %d %Y', '%B %d %Y', '%m/%d/%Y', '%Y-%m-%d']:
-            try:
-                parsed_date = datetime.datetime.strptime(clean_date, fmt)
-                completion_date = parsed_date.strftime('%B %d, %Y')
-                break
-            except ValueError:
-                continue
+        formatted_completion_date = completion_date.strftime('%B %d, %Y')  # Convert to string
     except Exception as e:
         logging.warning(f"Could not standardize completion date: {str(e)}")
-    
+        return
+
     section_4 = "**4. Term of this SOW**\n\n"
-    if effective_date and completion_date:
+    if effective_date and formatted_completion_date:
         section_4 += (f"This SOW shall be effective as of {effective_date.strftime('%B %d, %Y')} "
-                     f"and shall remain in effect until the completion of all services and deliverables by {completion_date}.")
+                     f"and shall remain in effect until the completion of all services and deliverables by {formatted_completion_date}.")
     else:
         section_4 += "[ERROR: Missing effective date or completion date]"
     
@@ -1617,7 +1659,7 @@ def generate_section_5_costs():
     # Add deliverables and labor costs in table format
     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
         if isinstance(deliverable.get('labor_costs'), dict):
-            section += f"\n**Deliverable {i}: {deliverable.get('description', '')}**\n\n"
+            section += f"**Deliverable {i}: {deliverable.get('description', '')}**\n\n"
             
             # Add labor costs table
             section += "| Role | Description | Rate | Hours | Subtotal |\n"
@@ -1683,6 +1725,30 @@ def generate_section_9():
         return f"\n**9. List of attached SOW Schedules**\n\n {schedule_list}"
     return f"\n**9. List of attached SOW Schedules**\n\nNone"
 
+def generate_section_5():
+    """Generate Additional Terms or Payment Terms section, etc."""
+    section = "**5. Payment Terms**\n\n"
+    
+    # Suppose we want to list deliverables that have cost info
+    # (This is just an example – adapt as needed)
+    if st.session_state.deliverables:
+        valid_deliverables = 0
+        for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
+            description_filled = bool(deliverable.get('description', '').strip())
+            if description_filled:
+                valid_deliverables += 1
+                # Suppose we print labor_costs if present
+                labor_costs = deliverable.get('labor_costs', {})
+                # ... format them, etc.
+                section += f"- {deliverable['description']} (Cost details: {labor_costs})\n"
+        
+        if valid_deliverables == 0:
+            section += "No payment terms have been defined.\n"
+    else:
+        section += "No payment terms have been defined.\n"
+
+    return section
+
 # ALTERNATIVE EXECUTIVE SUMMARY GENERATION - COMMENTED OUT FOR FUTURE REFERENCE
 # async def generate_executive_summary(user_input, additional_statements):
 #     prompt = f"""
@@ -1720,18 +1786,39 @@ def generate_section_9():
 #     return response
 
 def main():
+    # Define CSS for styling
+    st.markdown(
+        """
+        <style>
+        .custom-divider {
+            border-top: 4px solid #007BFF;  /* Blue color */
+            margin: 15px 0;                 /* Space above and below */
+        }
+        /* Target Streamlit's specific input elements */
+        textarea {
+            background-color: #e6f7ff !important;
+        }
+        .stTextInput > div > div > input {
+            background-color: #e6f7ff !important;
+        }
+        /* Target date input elements */
+        .stDateInput > div > div > input {
+            background-color: #e6f7ff !important;
+        }
+        /* Target number/selectbox input - slightly darker blue */
+        .stSelectbox > div > div > div {
+            background-color: #cce9ff !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
     # Change this part near the start of main()
     if test_bucket_access():
-        # Remove the success message
         pass
     else:
         st.error("Could not connect to cloud storage bucket")
-
-    st.markdown("""
-        <style>
-            /* Your existing CSS code here */
-        </style>
-    """, unsafe_allow_html=True)
 
     initialize_session_state()
     load_environment()
@@ -1759,9 +1846,12 @@ def main():
     
     col1, col2 = st.columns([2, 2])
     with col1:
-        st.session_state.client_address = st.text_input("What is the client's address?", value=st.session_state.get("client_address", ""))
+        st.session_state.client_address = st.text_input(
+            "What is the client's address?",
+            value=st.session_state.get("client_address", "")
+        )
         
-        # Date Selection
+        # Effective Date Input
         default_date = datetime.date.today()
         try:
             if isinstance(st.session_state.effective_date, str):
@@ -1770,9 +1860,19 @@ def main():
                 default_date = st.session_state.effective_date
         except ValueError:
             pass
-        st.session_state.effective_date = st.date_input("What is the effective date of this Statement of Work?", value=default_date)
-
-        # Master Terms Date Selection
+        st.session_state.effective_date = st.date_input(
+            "What is the effective date of this Statement of Work?",
+            value=default_date
+        )
+        
+        # NEW: expected Completion Date Input
+        default_completion_date = datetime.date.today()  # You can adjust the default if desired
+        st.session_state.expected_completion_date = st.date_input(
+            "What is the expected completion date for the project covered in this Statement of Work?",
+            value=default_completion_date
+        )
+        
+        # Master Terms Date Input
         default_master_date = datetime.date.today()
         try:
             if isinstance(st.session_state.master_terms_date, str):
@@ -1781,7 +1881,10 @@ def main():
                 default_master_date = st.session_state.master_terms_date
         except ValueError:
             pass
-        st.session_state.master_terms_date = st.date_input("What is the effective date of the Master Terms & Conditions Agreement?", value=default_master_date)
+        st.session_state.master_terms_date = st.date_input(
+            "What is the effective date of the Master Terms & Conditions Agreement?",
+            value=default_master_date
+        )
 
     # General Project Information
     st.subheader("General Project Information")
@@ -1812,7 +1915,10 @@ def main():
 
     # Create sections for each deliverable
     for i in range(num_deliverables):
-        st.markdown(f"**Deliverable {i + 1}**")
+        section_class = "deliverable-section-even" if i % 2 == 0 else "deliverable-section-odd"
+        st.markdown(f"<div class='{section_class}'>", unsafe_allow_html=True)
+        
+        st.markdown(f"### Deliverable {i + 1}")
         
         deliverable_key = f"deliverable_{i+1}"
         
@@ -1833,7 +1939,7 @@ def main():
             f"Name or description of deliverable {i + 1}:",
             help="Describe the primary consultation or service\n" +
                  "Example: 'Onsite consultation for protocol development'",
-            value=st.session_state.deliverables[deliverable_key].get('description', ''),
+            value=st.session_state.deliverables[deliverable_key]['description'],
             key=f"desc_{deliverable_key}"
         )
 
@@ -1842,56 +1948,73 @@ def main():
         with col1:
             target_date = st.date_input(
                 f"Target completion date for deliverable {i + 1}:",
-                value=st.session_state.deliverables[deliverable_key].get('target_date', default_date),
+                value=st.session_state.deliverables[deliverable_key]['target_date'],
                 key=f"target_date_{deliverable_key}"
             )
 
         # Milestones section
         st.markdown(f"**Milestones for Deliverable {i + 1}**")
         
-        # Calculate current number of milestones (with safety check)
-        current_milestone_count = len(st.session_state.deliverables[deliverable_key].get('milestones', []))
-        default_index = min(max(current_milestone_count - 1, 0), 8)  # Ensures index is between 0 and 8
+        # Get current milestones from session state
+        current_milestones = st.session_state.deliverables[deliverable_key].get('milestones', [])
         
-        col1, col2 = st.columns([1, 3])  # Create two columns with 1:3 ratio
+        # Create a unique key for the milestone count selectbox
+        milestone_count_key = f"num_milestones_{deliverable_key}"
+        
+        # Initialize the milestone count in session state if it doesn't exist
+        if milestone_count_key not in st.session_state:
+            st.session_state[milestone_count_key] = len(current_milestones)
+        
+        col1, col2 = st.columns([1, 3])
         with col1:
             num_milestones = st.selectbox(
-                "Select number of milestones",
-                options=list(range(1, 10)),
-                key=f"num_milestones_{deliverable_key}",
-                index=default_index
+                label="Number of milestones (leave at 0 if none for deliverable)",
+                options=list(range(0, 10)),
+                key=milestone_count_key
             )
-
-        # Initialize or adjust milestones list
-        current_milestones = st.session_state.deliverables[deliverable_key].get('milestones', [])
-        while len(current_milestones) < num_milestones:
-            current_milestones.append({
-                'description': '',
-                'due_date': target_date if len(current_milestones) == num_milestones - 1 else default_date
-            })
-        while len(current_milestones) > num_milestones:
-            current_milestones.pop()
+        
+        # Only adjust milestone list if the count has changed
+        if num_milestones != len(current_milestones):
+            # Preserve existing milestone data
+            new_milestones = current_milestones.copy()
+            
+            # Add new milestones if needed
+            while len(new_milestones) < num_milestones:
+                new_milestones.append({
+                    'description': '',
+                    'due_date': target_date if len(new_milestones) == num_milestones - 1 else default_date
+                })
+            
+            # Remove excess milestones if needed
+            while len(new_milestones) > num_milestones:
+                new_milestones.pop()
+            
+            # Update session state
+            st.session_state.deliverables[deliverable_key]['milestones'] = new_milestones
+            current_milestones = new_milestones
 
         # Display milestone inputs
         for j, milestone in enumerate(current_milestones):
             st.markdown(f"*Milestone {j + 1}*")
             
+            # Create unique keys for milestone inputs
+            desc_key = f"milestone_desc_{deliverable_key}_{j}"
+            date_key = f"milestone_date_{deliverable_key}_{j}"
+            
             # Milestone description
             milestone_desc = st.text_input(
                 f"Description for milestone {j + 1}",
                 value=milestone.get('description', ''),
-                key=f"milestone_desc_{deliverable_key}_{j}"
+                key=desc_key
             )
 
             # Milestone due date
             col1, col2 = st.columns([1, 3])
             with col1:
                 if j == num_milestones - 1:
-                    # Final milestone - use target date from deliverable
-                    milestone_date = target_date  # This is correct
+                    milestone_date = target_date
                     st.write(f"Target completion date for Deliverable {i + 1} and Milestone {j + 1}: {target_date.strftime('%B %d, %Y')}")
                 else:
-                    # Ensure default date doesn't exceed target date
                     default_milestone_date = min(
                         milestone.get('due_date', default_date),
                         target_date
@@ -1899,12 +2022,12 @@ def main():
                     milestone_date = st.date_input(
                         f"Target completion date for milestone {j + 1}:",
                         value=default_milestone_date,
-                        key=f"milestone_date_{deliverable_key}_{j}",
+                        key=date_key,
                         max_value=target_date
                     )
 
-            # Update milestone in list
-            current_milestones[j] = {
+            # Update milestone in session state
+            st.session_state.deliverables[deliverable_key]['milestones'][j] = {
                 'description': milestone_desc,
                 'due_date': milestone_date
             }
@@ -1936,10 +2059,6 @@ def main():
             'milestones': current_milestones
         })
 
-        # Add separator between deliverables
-        if i < num_deliverables - 1:
-            st.markdown("---")
-
         # Labor Categories expander for this deliverable
         with st.expander(f"Labor Categories - Deliverable {i + 1}"):
             labor_categories = {
@@ -1968,36 +2087,59 @@ def main():
                 
                 with col1:
                     st.text(role)
-                    # Add description field if hours > 0
-                    existing_hours = float(st.session_state.deliverables.get(deliverable_key, {})
-                                        .get('labor_costs', {}).get(role, {}).get('hours', 0))
-                    if existing_hours > 0:
-                        existing_desc = st.session_state.deliverables.get(deliverable_key, {}).get('labor_costs', {}).get(role, {}).get('description', '')
-                        work_description = st.text_area(
-                            "Description of Work",
-                            value=existing_desc,
-                            key=f"work_desc_{deliverable_key}_{role.replace(' ', '_')}",
-                            placeholder=f"Enter description for {role} work...",
-                            label_visibility="collapsed"
-                        )
+                    # Create a unique key for tracking hours
+                    hours_key = f"hours_{deliverable_key}_{role.replace(' ', '_')}"
                     
-                    with col2:
-                        st.text(f"${details['rate']:.2f}/hr")
+                    # Get existing hours from session state
+                    existing_hours = st.session_state.deliverables.get(deliverable_key, {}).get('labor_costs', {}).get(role, {}).get('hours', 0)
                     
                     with col3:
                         hours = st.number_input(
                             f"Hours",
-                            value=existing_hours,
-                            key=f"hours_{deliverable_key}_{role.replace(' ', '_')}",
+                            value=float(existing_hours),
+                            key=hours_key,
                             min_value=0.0,
                             step=0.25,
                             format="%.2f"
                         )
                     
+                    # Calculate total before displaying
+                    details['total'] = details['rate'] * hours
+                    
                     with col4:
-                        subtotal = details['rate'] * hours
-                        st.text(f"${subtotal:,.2f}")
-                        total_deliverable_cost += subtotal
+                        st.text(f"${details['rate']:.2f}/hr")
+                        st.text(f"${details['total']:,.2f}")
+                    
+                    # Show description field immediately if hours exist in session state
+                    if hours > 0:
+                        desc_key = f"work_desc_{deliverable_key}_{role.replace(' ', '_')}"
+                        existing_desc = st.session_state.deliverables.get(deliverable_key, {}).get('labor_costs', {}).get(role, {}).get('description', '')
+                        work_description = st.text_area(
+                            "Description of Work",
+                            value=existing_desc,
+                            key=desc_key,
+                            placeholder=f"Enter description for {role} work...",
+                            label_visibility="collapsed"
+                        )
+                        
+                        # Update session state immediately
+                        if deliverable_key not in st.session_state.deliverables:
+                            st.session_state.deliverables[deliverable_key] = {'labor_costs': {}}
+                        if 'labor_costs' not in st.session_state.deliverables[deliverable_key]:
+                            st.session_state.deliverables[deliverable_key]['labor_costs'] = {}
+                        
+                        st.session_state.deliverables[deliverable_key]['labor_costs'][role] = {
+                            'hours': hours,
+                            'rate': details['rate'],
+                            'total': details['total'],
+                            'description': work_description
+                        }
+                
+                with col4:
+                    st.text(f"${details['rate']:.2f}/hr")
+                    
+                    with col4:
+                        st.text(f"${details['total']:,.2f}")
                     
                     # Update session state for this role
                     if deliverable_key not in st.session_state.deliverables:
@@ -2008,14 +2150,14 @@ def main():
                         st.session_state.deliverables[deliverable_key]['labor_costs'][role] = {
                             'hours': hours,
                             'rate': details['rate'],
-                            'total': subtotal,
-                            'description': work_description if 'work_description' in locals() else ''
+                            'total': details['total'],
+                            'description': work_description
                         }
                     else:
                         st.session_state.deliverables[deliverable_key]['labor_costs'][role] = {
                             'hours': hours,
                             'rate': details['rate'],
-                            'total': subtotal
+                            'total': details['total']
                         }
                 
                 # Update the global total labor cost in session state
@@ -2023,6 +2165,12 @@ def main():
 
                 # Show individual total for the deliverable
             st.markdown(f"**Total Cost for Deliverable {i + 1}: ${total_deliverable_cost:,.2f}**")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+            # Add separator between deliverables
+        if i < num_deliverables - 1:
+            st.markdown('<hr class="custom-divider">', unsafe_allow_html=True)
 
     st.markdown("### Technical Requirements")
     tech_req = st.radio(
@@ -2240,11 +2388,13 @@ def main():
                 sow_filename = f"sow_{client_name}_{timestamp}.docx"
                 entries_filename = f"entries_{client_name}_{timestamp}.docx"
                 
-                # Silently save to Cloud Storage
-                save_to_gcloud_bucket(document, sow_filename)
-                save_to_gcloud_bucket(entries_document, entries_filename)
-                
-                # Only show download button
+                # Only save files to Cloud Storage once
+                if not st.session_state.get("sow_uploaded", False):
+                    save_to_gcloud_bucket(document, sow_filename)
+                    save_to_gcloud_bucket(entries_document, entries_filename)
+                    st.session_state.sow_uploaded = True
+
+                # Provide download button to download the SOW locally only
                 st.download_button(
                     label="Download Statement of Work",
                     data=document,
@@ -2254,8 +2404,7 @@ def main():
                     key=f"sow_download_{int(time.time())}"
                 )
         except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
-            st.error(f"Traceback: {traceback.format_exc()}")
+            st.error(f"Error processing documents: {str(e)}")
 
     if "audio_data" not in st.session_state:
         st.session_state.audio_data = None
@@ -2297,6 +2446,29 @@ def test_bucket_access():
     except Exception as e:
         st.error(f"Bucket access error: {str(e)}")
         return False
+
+def add_deliverables_form():
+    with st.form("deliverables_form"):
+        st.write("Add Project Deliverables")
+        
+        if 'deliverables' not in st.session_state:
+            st.session_state.deliverables = []
+            
+        deliverable_name = st.text_input("Deliverable Name")
+        deliverable_date = st.date_input("Expected Completion Date")
+        
+        if st.form_submit_button("Add Deliverable"):
+            st.session_state.deliverables.append({
+                "name": deliverable_name,
+                "date": deliverable_date.strftime('%B %d, %Y')
+            })
+            st.success("Deliverable added!")
+
+    # Display current deliverables
+    if st.session_state.deliverables:
+        st.write("Current Deliverables:")
+        for d in st.session_state.deliverables:
+            st.write(f"- {d['name']}: {d['date']}")
 
 if __name__ == "__main__":
     import sys
