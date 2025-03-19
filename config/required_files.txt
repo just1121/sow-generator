@@ -1,7 +1,0 @@
-water_recycling_app.py
-app.py
-templates/
-requirements.txt
-.env (template)
-SETUP.md
-.gitignore

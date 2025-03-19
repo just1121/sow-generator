@@ -1,0 +1,234 @@
+{
+    "default": {
+        "questions": {
+            "client": {
+                "id": 0,
+                "question": "Who is the client?",
+                "type": "text",
+                "answer": "Peter Michael Winery"
+            },
+            "general_info": [
+                {
+                    "id": 1,
+                    "question": "Why were we called?",
+                    "type": "text",
+                    "answer": "Client needs membrane filtration optimization"
+                },
+                {
+                    "id": 2,
+                    "question": "What is the strategic purpose of this project?",
+                    "type": "text",
+                    "answer": "Improve water recycling efficiency and reduce operational costs"
+                },
+                {
+                    "id": 3,
+                    "question": "What is the tactical goal of this project?",
+                    "type": "text",
+                    "answer": "Optimize membrane performance and establish monitoring protocols"
+                },
+                {
+                    "id": 4,
+                    "question": "What is the desired end state?",
+                    "type": "text",
+                    "answer": "Fully optimized membrane system with trained operators"
+                },
+                {
+                    "id": 5,
+                    "question": "What is the scope of work proposed?",
+                    "type": "text",
+                    "answer": "Membrane performance trial and system design specifications"
+                },
+                {
+                    "id": 6,
+                    "question": "What is the technical approach to this project?",
+                    "type": "text",
+                    "answer": "Conduct on-site trials and develop custom optimization protocols"
+                },
+                {
+                    "id": 7,
+                    "question": "What equipment is required?",
+                    "type": "text",
+                    "answer": "Membrane filtration units, monitoring equipment, data loggers"
+                },
+                {
+                    "id": 8,
+                    "question": "Why is that equipment important and unique?",
+                    "type": "text",
+                    "answer": "Specialized for winery wastewater treatment with real-time monitoring capabilities"
+                },
+                {
+                    "id": 9,
+                    "question": "What is the proposed timeline for project completion?",
+                    "type": "text",
+                    "answer": "March 31, 2024"
+                }
+            ],
+            "project_details": {
+                "main_questions": [
+                    {
+                        "id": 1,
+                        "question": "Are there specific technical requirements or limits to meet?",
+                        "type": "radio",
+                        "answer": "Yes"
+                    }
+                ],
+                "technical_details": [
+                    {
+                        "id": 1,
+                        "question": "What is the technical approach to this project?",
+                        "type": "text",
+                        "answer": "Phased implementation with continuous monitoring"
+                    },
+                    {
+                        "id": 2,
+                        "question": "What are the specific technical requirements?",
+                        "type": "text",
+                        "answer": "Filtration efficiency >95%, TDS reduction >50%"
+                    },
+                    {
+                        "id": 3,
+                        "question": "What are the technical limits?",
+                        "type": "text",
+                        "answer": "Maximum flow rate 100 GPM, pressure limit 60 PSI"
+                    },
+                    {
+                        "id": 4,
+                        "question": "Are there any regulatory standards to comply with?",
+                        "type": "text",
+                        "answer": "Local wastewater discharge requirements"
+                    }
+                ]
+            },
+            "additional_details": [
+                {
+                    "id": 1,
+                    "question": "What are the potential risks and mitigation strategies?",
+                    "type": "text",
+                    "answer": "Equipment failure risk - redundant systems planned"
+                },
+                {
+                    "id": 2,
+                    "question": "Are there intangible results expected? (expectations of client)",
+                    "type": "text",
+                    "answer": "Improved operational efficiency and staff confidence"
+                },
+                {
+                    "id": 3,
+                    "question": "Is coordination with other contractors required?",
+                    "type": "radio",
+                    "answer": "No"
+                }
+            ],
+            "coordination_details": [
+                {
+                    "id": 1,
+                    "question": "Which contractors?",
+                    "type": "text",
+                    "answer": ""
+                },
+                {
+                    "id": 2,
+                    "question": "What is the nature of coordination?",
+                    "type": "text",
+                    "answer": ""
+                }
+            ]
+        },
+        "client_address": "1 Bean Hill Road",
+        "effective_date": "2024-12-15",
+        "master_terms_date": "2023-06-10",
+        "deliverables": {
+            "deliverable_1": {
+                "description": "Membrane Performance Trial and Analysis",
+                "target_date": "2024-02-28",
+                "labor_costs": {
+                    "Project Management": {
+                        "hours": 4.0,
+                        "rate": 325.00,
+                        "total": 1300.00,
+                        "description": "Project oversight, client communication, and trial coordination"
+                    },
+                    "Process Engineer": {
+                        "hours": 6.0,
+                        "rate": 225.00,
+                        "total": 1350.00,
+                        "description": "Setup and execution of membrane trials, data analysis, and optimization recommendations"
+                    },
+                    "Cost Administration": {
+                        "hours": 1.5,
+                        "rate": 135.00,
+                        "total": 202.50,
+                        "description": "Project cost tracking and invoice preparation"
+                    }
+                },
+                "milestones": [
+                    {
+                        "description": "Initial site assessment and data collection",
+                        "due_date": "2024-01-15"
+                    },
+                    {
+                        "description": "Trial setup and equipment installation",
+                        "due_date": "2024-01-30"
+                    },
+                    {
+                        "description": "Performance testing and data analysis",
+                        "due_date": "2024-02-28"
+                    }
+                ]
+            },
+            "deliverable_2": {
+                "description": "System Design Specifications",
+                "target_date": "2024-03-31",
+                "labor_costs": {
+                    "Project Management": {
+                        "hours": 3.0,
+                        "rate": 325.00,
+                        "total": 975.00,
+                        "description": "Design review, client meetings, and final approval coordination"
+                    },
+                    "Senior Wastewater Consultant": {
+                        "hours": 4.0,
+                        "rate": 275.00,
+                        "total": 1100.00,
+                        "description": "Technical review and compliance verification of design specifications"
+                    },
+                    "Process Engineer": {
+                        "hours": 8.0,
+                        "rate": 225.00,
+                        "total": 1800.00,
+                        "description": "Development of detailed system specifications and performance requirements"
+                    },
+                    "Schedule Administration": {
+                        "hours": 2.0,
+                        "rate": 135.00,
+                        "total": 270.00,
+                        "description": "Timeline management and milestone tracking"
+                    }
+                },
+                "milestones": [
+                    {
+                        "description": "Draft specifications development",
+                        "due_date": "2024-03-15"
+                    },
+                    {
+                        "description": "Client review and feedback",
+                        "due_date": "2024-03-25"
+                    },
+                    {
+                        "description": "Final specifications delivery",
+                        "due_date": "2024-03-31"
+                    }
+                ]
+            }
+        },
+        "expenses": {
+            "materials_cost": 4500.00,
+            "materials_markup": 0.25,
+            "mileage": 0,
+            "mileage_rate": 0.625,
+            "truck_days": 0,
+            "truck_rate": 200.00
+        },
+        "additional_statements": "Winery currently treats a reject process fluid to remove silver nano-particles and facilitate compliance with local municipal wastewater discharge standards."
+    }
+}

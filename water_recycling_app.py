@@ -39,6 +39,14 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 # Set page config as the first Streamlit command
 st.set_page_config(layout="wide")
 
+# Hide menu and footer
+st.markdown("""
+<style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
+
 # Initialize section2_counter at the start of the script
 section2_counter = 0
 
@@ -217,12 +225,16 @@ st.markdown("""
 
 def load_environment():
     load_dotenv()
-    if not os.getenv("GOOGLE_API_KEY"):
-        st.error("Google API key not found. Please check your .env file.")
+    if "GOOGLE_API_KEY" not in st.secrets:
+        st.error("Google API key not found in Streamlit secrets. Please add it to your secrets.toml file.")
         st.stop()
-    if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
-        st.error("Google Application Credentials not found. Please set the GOOGLE_APPLICATION_CREDENTIALS environment variable.")
+    if "GOOGLE_APPLICATION_CREDENTIALS" not in st.secrets:
+        st.error("Google Application Credentials not found in Streamlit secrets. Please add it to your secrets.toml file.")
         st.stop()
+    
+    # Set environment variables from secrets
+    os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = st.secrets["GOOGLE_APPLICATION_CREDENTIALS"]
 
 def create_document(content, file_format):
     global section2_counter  # Move it here
@@ -1168,7 +1180,7 @@ Third Paragraph:
             """
 
             # Configure and generate with model
-            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+            genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
             model = genai.GenerativeModel('gemini-pro')
             response = model.generate_content(prompt).text  # Remove asyncio.to_thread
 
