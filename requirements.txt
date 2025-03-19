@@ -2,3 +2,10 @@ streamlit
 google-generativeai
 python-dotenv
 numpy
+python-docx
+reportlab
+langchain
+langchain-community
+langchain-huggingface
+sentence-transformers
+faiss-cpu
