@@ -2414,12 +2414,20 @@ def main():
                 st.error(f"Error creating entries record: {str(e)}")
 
     # Generate SOW Button
-    if st.button("Generate SOW", type="primary", key="generate_sow"):
-        with st.spinner("Generating SOW..."):
-            try:
-                start_sow_generation()
-            except Exception as e:
-                st.error(f"Error generating SOW: {str(e)}")
+    if 'generating_sow' not in st.session_state:
+        st.session_state.generating_sow = False
+
+    if st.button("Generate SOW" if not st.session_state.generating_sow else "Generating...", 
+                 type="primary", 
+                 key="generate_sow",
+                 disabled=st.session_state.generating_sow):
+        st.session_state.generating_sow = True
+        try:
+            start_sow_generation()
+            st.session_state.generating_sow = False
+        except Exception as e:
+            st.session_state.generating_sow = False
+            st.error(f"Error generating SOW: {str(e)}")
 
     if st.session_state.get('sow_generation_started'):
         if 'sow_result' in st.session_state:
@@ -2427,9 +2435,11 @@ def main():
                 st.success("SOW Generated Successfully!")
                 st.session_state.generated_content = st.session_state.sow_result['content']
                 st.session_state.sow_generation_started = False
+                st.session_state.generating_sow = False
             elif st.session_state.sow_result['status'] == 'error':
                 st.error(f"Error generating SOW: {st.session_state.sow_result['error']}")
                 st.session_state.sow_generation_started = False
+                st.session_state.generating_sow = False
         else:
             st.info("Generating SOW... Please wait...")
 
