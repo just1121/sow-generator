@@ -12,4 +12,7 @@ langchain-community==0.2.17
 langchain-huggingface==0.0.3
 sentence-transformers==3.2.1
 faiss-cpu==1.8.0.post1
-google-cloud-speech==2.21.0  # This is the correct package name
+google-cloud-speech==2.21.0
+pydub==0.25.1  # Audio processing
+streamlit-audio-recorder==0.0.8  # Audio recording component
+google-cloud-storage==2.14.0  # For Google Cloud Storage access
