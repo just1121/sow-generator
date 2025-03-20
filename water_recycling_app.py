@@ -74,14 +74,19 @@ st.markdown("""
 <style>
     /* Hide main menu and footer */
     #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-
+    footer {visibility: hidden !important;}
+    footer:after {visibility: hidden !important;}
+    
+    /* Hide absolutely all footer elements */
+    div[data-testid="stFooter"] {visibility: hidden !important;}
+    .streamlit-footer {visibility: hidden !important;}
+    
     /* Hide header buttons */
     header {visibility: hidden !important;}
     
     /* Hide specific buttons */
     .stDeployButton {display:none;}
-    button[title="View fullscreen"] {visibility: hidden;}
+    button[title="View fullscreen"] {visibility: hidden !important; display: none !important;}
     button[data-testid="baseButton-header"] {visibility: hidden !important;}
     
     /* Hide all sharing options */
