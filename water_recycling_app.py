@@ -2417,17 +2417,24 @@ def main():
     if 'generating_sow' not in st.session_state:
         st.session_state.generating_sow = False
 
-    if st.button("Generate SOW" if not st.session_state.generating_sow else "Generating...", 
-                 type="primary", 
-                 key="generate_sow",
-                 disabled=st.session_state.generating_sow):
-        st.session_state.generating_sow = True
-        try:
-            start_sow_generation()
-            st.session_state.generating_sow = False
-        except Exception as e:
-            st.session_state.generating_sow = False
-            st.error(f"Error generating SOW: {str(e)}")
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if st.button("Generate SOW", 
+                    type="primary", 
+                    key="generate_sow",
+                    disabled=st.session_state.generating_sow):
+            st.session_state.generating_sow = True
+            try:
+                start_sow_generation()
+            except Exception as e:
+                st.error(f"Error generating SOW: {str(e)}")
+            finally:
+                st.session_state.generating_sow = False
+
+    # Show spinner in second column while generating
+    with col2:
+        if st.session_state.generating_sow:
+            st.spinner("Generating SOW...")
 
     if st.session_state.get('sow_generation_started'):
         if 'sow_result' in st.session_state:
@@ -2440,8 +2447,6 @@ def main():
                 st.error(f"Error generating SOW: {st.session_state.sow_result['error']}")
                 st.session_state.sow_generation_started = False
                 st.session_state.generating_sow = False
-        else:
-            st.info("Generating SOW... Please wait...")
 
     # Display Generated Content
     if st.session_state.get('generated_content'):
