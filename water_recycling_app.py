@@ -70,16 +70,12 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 # Set page config as the first Streamlit command
 st.set_page_config(layout="wide")
 
+# Hide Streamlit elements
 st.markdown("""
 <style>
-    /* Hide main menu and footer */
+    /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden !important;}
-    footer:after {visibility: hidden !important;}
-    
-    /* Hide absolutely all footer elements */
-    div[data-testid="stFooter"] {visibility: hidden !important;}
-    .streamlit-footer {visibility: hidden !important;}
     
     /* Hide header buttons */
     header {visibility: hidden !important;}
@@ -99,6 +95,16 @@ st.markdown("""
     .css-10oheav {visibility: hidden !important;}
     .css-zq5wmm {visibility: hidden !important;}
     .css-1wmy9rr {visibility: hidden !important;}
+
+    /* Hide footer and fullscreen elements */
+    .element-container:has(iframe[title="streamlit_footer"]) {display: none !important;}
+    .viewerBadge_container__1QSob {display: none !important;}
+    .streamlit-footer {display: none !important;}
+    .stApp a:first-child {display: none !important;}
+    
+    /* Hide fullscreen button */
+    .fullScreenFrame {display: none !important;}
+    button[title="View fullscreen"] {display: none !important;}
 </style>
 """, unsafe_allow_html=True)
 
