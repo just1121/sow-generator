@@ -295,6 +295,9 @@ def create_document(content, file_format):
         buffer = io.BytesIO()
         doc = Document()
         
+        # Get client name at the start
+        client_name = st.session_state.questions['client']["answer"].strip()
+        
         def apply_heading_style(paragraph):
             for run in paragraph.runs:
                 run.font.name = 'Calibri'
@@ -357,7 +360,6 @@ def create_document(content, file_format):
                     apply_heading_style(p)
                     
                     # Add narrative
-                    client_name = st.session_state.questions['client']["answer"].strip()
                     labor_cost = sum(details['total'] for deliverable in st.session_state.deliverables.values() 
                                   for details in deliverable.get('labor_costs', {}).values() 
                                   if isinstance(details, dict))
@@ -639,7 +641,6 @@ def create_document(content, file_format):
                     apply_heading_style(p)
                     
                     # Add narrative
-                    client_name = st.session_state.questions['client']["answer"].strip()
                     labor_cost = sum(details['total'] for deliverable in st.session_state.deliverables.values() 
                                   for details in deliverable.get('labor_costs', {}).values() 
                                   if isinstance(details, dict))
