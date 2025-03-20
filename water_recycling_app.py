@@ -1492,34 +1492,7 @@ def transcribe_audio(audio_content, sample_rate_hertz=16000):
 
 def get_audio_input(question, key):
     """Get audio input from user and transcribe it."""
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        text_input = st.text_area(question, key=f"text_{key}", height=100)
-    
-    with col2:
-        # ===============================================================
-        # DEVELOPER NOTE: This displays a disabled audio button but doesn't show warnings
-        # Restore the original st_audio_recorder call when audio dependencies are available
-        # ===============================================================
-        st.markdown("""
-        <style>
-        .disabled-button {
-            background-color: #e0e0e0;
-            color: #a0a0a0;
-            padding: 0.5rem 1rem;
-            border-radius: 0.3rem;
-            border: 1px solid #d0d0d0;
-            cursor: not-allowed;
-            font-weight: 400;
-            text-align: center;
-            display: inline-block;
-        }
-        </style>
-        <div class="disabled-button">🎤 Record Audio</div>
-        """, unsafe_allow_html=True)
-    
-    return text_input
+    return st.text_area(question, key=f"text_{key}", height=100)
 
 def generate_legal_preamble(client_name, client_address, sow_date, master_terms_date):
     if not client_name:
@@ -1867,15 +1840,33 @@ def main():
     if speech_available and audio_recorder_available:
         st.session_state.input_method = st.radio("Choose input method:", ['Text', 'Audio'])
     else:
+        # Create a custom radio button with Audio greyed out
+        st.markdown("""
+        <style>
+        /* Style for disabled radio option */
+        .disabled-radio {
+            color: #a0a0a0;
+            cursor: not-allowed;
+        }
+        </style>
+        <div>
+            <p>Choose input method:</p>
+            <input type="radio" id="text" name="input_method" value="Text" checked>
+            <label for="text">Text</label><br>
+            <input type="radio" id="audio" name="input_method" value="Audio" disabled>
+            <label for="audio" class="disabled-radio">Audio (not available)</label>
+        </div>
+        """, unsafe_allow_html=True)
         st.session_state.input_method = 'Text'
-        if not speech_available:
-            st.warning("Speech-to-text functionality is not available in this deployment")
-        if not audio_recorder_available:
-            st.warning("Audio recorder functionality is not available in this deployment")
 
     # Client Information
     st.subheader("Client Information")
-    st.session_state.questions['client']["answer"] = get_audio_input("Who is the client?", "client")
+    st.session_state.questions['client']["answer"] = st.text_area(
+        "Who is the client?",
+        value=st.session_state.questions['client'].get("answer", ""),
+        key="text_client",
+        height=100
+    )
     
     col1, col2 = st.columns([2, 2])
     with col1:
