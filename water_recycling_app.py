@@ -13,26 +13,13 @@ import numpy as np
 try:
     from docx import Document
     from docx.shared import Pt
-    import google.generativeai as genai
     st.success("All core imports successful")
 except Exception as e:
     st.error(f"Error importing: {e}")
 
-# Try initializing the Gemini API
-try:
-    # Configure API key
-    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-    
-    # For older versions of the API, try this method instead
-    model = genai.get_model('gemini-pro')  # Or the correct model name for your version
-    st.success("✅ Successfully connected to Gemini API")
-except Exception as e:
-    st.error(f"Error initializing Gemini API: {e}")
-    st.exception(e)
-
 # Basic app UI
 st.title("Water Recycling Solution Generator")
-st.write("Testing API connection and form functionality")
+st.write("Testing form functionality")
 
 # Add a simple form
 with st.form("test_form"):
@@ -42,18 +29,31 @@ with st.form("test_form"):
     
     if submit:
         st.write(f"Hello, {name} from {company}!")
+        st.write("This confirms that basic form inputs are working.")
         
-        # Try a simple AI generation
+        # Create a simple Word document as a test
         try:
-            prompt = f"Write a short greeting to {name} from {company} about water recycling."
+            doc = Document()
+            doc.add_heading(f'Test Document for {name}', 0)
+            doc.add_paragraph(f'This is a test document for {name} from {company}.')
             
-            # For older API versions, use this method
-            response = model.generate_text(prompt)
-            st.write("Gemini says:")
-            st.write(response)
+            # Save to BytesIO
+            doc_io = io.BytesIO()
+            doc.save(doc_io)
+            doc_io.seek(0)
+            
+            # Offer for download
+            st.download_button(
+                label="Download Test Document",
+                data=doc_io,
+                file_name="test_document.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+            
+            st.success("Document generation is working!")
         except Exception as e:
-            st.error(f"Error generating content: {e}")
+            st.error(f"Error generating document: {e}")
             st.exception(e)
 
 # Show info message
-st.info("If you can see this, the form and API functions are working.")
+st.info("If you can see this, all test functions are working.")
