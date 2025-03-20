@@ -22,7 +22,9 @@ except Exception as e:
 try:
     # Configure API key
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-    model = genai.GenerativeModel('gemini-pro')
+    
+    # For older versions of the API, try this method instead
+    model = genai.get_model('gemini-pro')  # Or the correct model name for your version
     st.success("✅ Successfully connected to Gemini API")
 except Exception as e:
     st.error(f"Error initializing Gemini API: {e}")
@@ -44,11 +46,14 @@ with st.form("test_form"):
         # Try a simple AI generation
         try:
             prompt = f"Write a short greeting to {name} from {company} about water recycling."
-            response = model.generate_content(prompt)
+            
+            # For older API versions, use this method
+            response = model.generate_text(prompt)
             st.write("Gemini says:")
-            st.write(response.text)
+            st.write(response)
         except Exception as e:
             st.error(f"Error generating content: {e}")
+            st.exception(e)
 
 # Show info message
 st.info("If you can see this, the form and API functions are working.")
