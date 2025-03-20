@@ -21,39 +21,40 @@ except Exception as e:
 st.title("Water Recycling Solution Generator")
 st.write("Testing form functionality")
 
-# Add a simple form
+# Form for input
 with st.form("test_form"):
     name = st.text_input("Enter your name:")
     company = st.text_input("Enter your company:")
-    submit = st.form_submit_button("Submit")
+    submitted = st.form_submit_button("Submit")
+
+# Process form submission outside the form
+if submitted:
+    st.write(f"Hello, {name} from {company}!")
+    st.write("This confirms that basic form inputs are working.")
     
-    if submit:
-        st.write(f"Hello, {name} from {company}!")
-        st.write("This confirms that basic form inputs are working.")
+    # Create a simple Word document as a test
+    try:
+        doc = Document()
+        doc.add_heading(f'Test Document for {name}', 0)
+        doc.add_paragraph(f'This is a test document for {name} from {company}.')
         
-        # Create a simple Word document as a test
-        try:
-            doc = Document()
-            doc.add_heading(f'Test Document for {name}', 0)
-            doc.add_paragraph(f'This is a test document for {name} from {company}.')
-            
-            # Save to BytesIO
-            doc_io = io.BytesIO()
-            doc.save(doc_io)
-            doc_io.seek(0)
-            
-            # Offer for download
-            st.download_button(
-                label="Download Test Document",
-                data=doc_io,
-                file_name="test_document.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
-            
-            st.success("Document generation is working!")
-        except Exception as e:
-            st.error(f"Error generating document: {e}")
-            st.exception(e)
+        # Save to BytesIO
+        doc_io = io.BytesIO()
+        doc.save(doc_io)
+        doc_io.seek(0)
+        
+        # Offer for download (outside the form)
+        st.download_button(
+            label="Download Test Document",
+            data=doc_io,
+            file_name="test_document.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        
+        st.success("Document generation is working!")
+    except Exception as e:
+        st.error(f"Error generating document: {e}")
+        st.exception(e)
 
 # Show info message
 st.info("If you can see this, all test functions are working.")
