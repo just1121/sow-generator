@@ -1,12 +1,12 @@
 setuptools>=65.5.0
 distutils-pytest>=0.1.2
-streamlit==1.24.0
+streamlit>=1.27.0  # Newer Streamlit that supports Pillow 10+
 google-generativeai==0.1.0rc1
 python-dotenv==1.0.1
 numpy>=1.26.0,<2.0.0
 python-docx==1.1.2
 reportlab==4.2.5
-pillow>=10.0.0  # Adding a newer version of Pillow
+pillow>=10.0.0,<11.0.0
 langchain==0.2.16
 langchain-community==0.2.17
 langchain-huggingface==0.0.3
