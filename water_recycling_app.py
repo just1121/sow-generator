@@ -22,18 +22,39 @@ import asyncio
 from functools import partial
 from streamlit import cache_data, cache_resource
 
-# Add error handling for speech functionality
-try:
-    from google.cloud import speech
-    speech_available = True
-except ImportError:
-    speech_available = False
-    st.warning("Speech-to-text functionality is not available in this deployment")
-    # Create a dummy class if needed
-    class DummySpeech:
-        def __init__(self):
-            pass
-    speech = DummySpeech()
+# ===============================================================
+# DEVELOPER NOTE: Audio functionality is disabled for Streamlit Cloud deployment
+# due to dependency issues with custom components and audio libraries.
+# If deploying to an environment with full audio support:
+# 1. Uncomment the imports below
+# 2. Remove the dummy implementations
+# 3. Restore the original audio processing code
+# ===============================================================
+
+# Commented out audio-related imports
+# from streamlit_audio_recorder import st_audio_recorder
+# from pydub import AudioSegment
+# from google.cloud import speech
+
+# Silent dummy implementations - no user warnings
+def st_audio_recorder(*args, **kwargs):
+    return None
+
+class AudioSegment:
+    @staticmethod
+    def from_file(*args, **kwargs):
+        return AudioSegment()
+    def export(self, *args, **kwargs):
+        return io.BytesIO()
+    # Add other methods as needed
+
+class DummySpeech:
+    def __init__(self):
+        pass
+
+speech = DummySpeech()
+speech_available = False
+audio_recorder_available = False
 
 import tempfile
 import numpy as np
@@ -43,16 +64,6 @@ import datetime
 import time
 import re
 import streamlit.components.v1 as components
-try:
-    from streamlit_audio_recorder import st_audio_recorder
-    audio_recorder_available = True
-except ImportError:
-    audio_recorder_available = False
-    # Create a dummy function to prevent errors
-    def st_audio_recorder(*args, **kwargs):
-        return None
-from pydub import AudioSegment
-import subprocess
 from google.cloud import storage
 from docx.enum.table import WD_TABLE_ALIGNMENT
 
@@ -1480,62 +1491,35 @@ def transcribe_audio(audio_content, sample_rate_hertz=16000):
         return None
 
 def get_audio_input(question, key):
-    if key not in st.session_state:
-        st.session_state[key] = ""
-    
-    # Add a transcription_complete flag
-    transcription_key = f"transcription_complete_{key}"
-    if transcription_key not in st.session_state:
-        st.session_state[transcription_key] = False
-    
+    """Get audio input from user and transcribe it."""
     col1, col2 = st.columns([3, 1])
     
     with col1:
-        text_value = st.text_area(question, 
-                                key=f"text_{key}", 
-                                value=st.session_state[key],
-                                height=100)
-        if text_value != st.session_state[key]:
-            st.session_state[key] = text_value
+        text_input = st.text_area(question, key=f"text_{key}", height=100)
     
-    if st.session_state.input_method == 'Audio':
-        if not speech_available:
-            st.warning("Voice recording functionality is disabled in this deployment")
-        elif not audio_recorder_available:
-            st.warning("Audio recorder functionality is disabled in this deployment")
-        else:
-            with col2:
-                status_placeholder = st.empty()
-                prev_audio_key = f"prev_audio_{key}"
-                if prev_audio_key not in st.session_state:
-                    st.session_state[prev_audio_key] = None
-                
-                audio_bytes = st_audio_recorder(key=f"audio_{key}")
-                
-                # Only process when audio_bytes changes from None to not None
-                if (audio_bytes is not None and 
-                    st.session_state[prev_audio_key] is None and 
-                    not st.session_state[transcription_key]):
-                
-                    status_placeholder.info("Processing audio...")
-                    transcription = transcribe_audio(audio_bytes)
-                    
-                    if transcription:
-                        st.session_state[key] = transcription
-                        st.session_state[transcription_key] = True
-                        status_placeholder.success("Transcription complete!")
-                        st.rerun()
-                    else:
-                        status_placeholder.error("Transcription failed")
-                
-                # Reset transcription flag after rerun
-                if st.session_state[transcription_key]:
-                    st.session_state[transcription_key] = False
-                
-                # Update previous audio state
-                st.session_state[prev_audio_key] = audio_bytes
+    with col2:
+        # ===============================================================
+        # DEVELOPER NOTE: This displays a disabled audio button but doesn't show warnings
+        # Restore the original st_audio_recorder call when audio dependencies are available
+        # ===============================================================
+        st.markdown("""
+        <style>
+        .disabled-button {
+            background-color: #e0e0e0;
+            color: #a0a0a0;
+            padding: 0.5rem 1rem;
+            border-radius: 0.3rem;
+            border: 1px solid #d0d0d0;
+            cursor: not-allowed;
+            font-weight: 400;
+            text-align: center;
+            display: inline-block;
+        }
+        </style>
+        <div class="disabled-button">🎤 Record Audio</div>
+        """, unsafe_allow_html=True)
     
-    return st.session_state[key]
+    return text_input
 
 def generate_legal_preamble(client_name, client_address, sow_date, master_terms_date):
     if not client_name:
