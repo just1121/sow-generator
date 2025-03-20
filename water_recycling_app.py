@@ -2416,53 +2416,7 @@ def main():
     if st.button("Generate SOW", type="primary", key="generate_sow"):
         with st.spinner("Generating SOW..."):
             try:
-                # Create the SOW document
-                doc = create_sow_document(
-                    st.session_state.questions,
-                    st.session_state.selected_options,
-                    st.session_state.labor_costs,
-                    st.session_state.equipment_costs,
-                    st.session_state.additional_costs,
-                    st.session_state.total_cost
-                )
-                
-                # Save locally first
-                local_docx_path = "generated_sow.docx"
-                local_pdf_path = "generated_sow.pdf"
-                doc.save(local_docx_path)
-                
-                # Convert to PDF
-                convert_to_pdf(local_docx_path, local_pdf_path)
-                
-                # Only attempt cloud storage if explicitly enabled
-                if os.getenv("ENABLE_CLOUD_STORAGE", "false").lower() == "true":
-                    try:
-                        # Upload to GCS
-                        bucket_name = "your-bucket-name"
-                        upload_to_gcs(local_docx_path, bucket_name, f"sows/{os.path.basename(local_docx_path)}")
-                        upload_to_gcs(local_pdf_path, bucket_name, f"sows/{os.path.basename(local_pdf_path)}")
-                    except Exception as e:
-                        print(f"Note: Cloud storage operations skipped - {str(e)}")
-                
-                # Display download buttons
-                with open(local_docx_path, "rb") as docx_file:
-                    st.download_button(
-                        label="Download SOW (DOCX)",
-                        data=docx_file,
-                        file_name="generated_sow.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    )
-                
-                with open(local_pdf_path, "rb") as pdf_file:
-                    st.download_button(
-                        label="Download SOW (PDF)",
-                        data=pdf_file,
-                        file_name="generated_sow.pdf",
-                        mime="application/pdf"
-                    )
-                
-                st.success("SOW generated successfully!")
-                
+                start_sow_generation()
             except Exception as e:
                 st.error(f"Error generating SOW: {str(e)}")
 
