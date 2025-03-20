@@ -578,7 +578,7 @@ def create_document(content, file_format):
                     apply_heading_style(p)
 
                     # Get completion date directly from session state
-                    completion_date = st.session_state.get('expected_completion_date')
+                    completion_date = st.session_state.get('expected_completion_date', None)
                     
                     try:
                         formatted_completion_date = completion_date.strftime('%B %d, %Y')
@@ -586,21 +586,36 @@ def create_document(content, file_format):
                         st.error(f"Error formatting completion date: {str(e)}")
                         formatted_completion_date = str(completion_date)
 
-                    # Add the introductory text
-                    client_name = st.session_state.questions['client']["answer"].strip()
-                    intro_text = f"Contractor will conduct the Services and provide the Deliverables to {client_name} by {formatted_completion_date}. Specific deliverables and their projected timing are included below."
-                    p = doc.add_paragraph(intro_text)
-                    apply_body_style(p)
+                    # Build the section as a string
+                    section = "**3. Work Schedule**\n\n"
+                    
+                    section += (f"Contractor will conduct the Services and provide the Deliverables to {client_name} "
+                               f"by {formatted_completion_date}. Specific deliverables and their projected timing "
+                               f"are included below.\n\n")
+                    
+                    section += "**Deliverable Schedule:**\n\n"
 
-                    # Process each deliverable with bullet points and target dates
-                    for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
-                        if deliverable.get('description') and deliverable.get('target_date'):
-                            p = doc.add_paragraph()
-                            p.style = 'List Bullet'  # This gives us the bullet point (•) format
-                            target_date = deliverable['target_date'].strftime('%B %d, %Y')
-                            p.add_run(f"{deliverable.get('description')} by {target_date}")
+                    # Add deliverables to the schedule
+                    if st.session_state.deliverables:
+                        filled_count = 0
+                        for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
+                            description_filled = bool(deliverable.get('description', '').strip())
+                            # Maybe you want to check deliverable["target_date"] if it's mandatory
+                            if description_filled:
+                                filled_count += 1
+                                target_date = deliverable.get('target_date')
+                                if target_date:
+                                    date_str = target_date.strftime('%B %d, %Y')
+                                    section += f"- {deliverable['description']} by {date_str}\n"
+                                else:
+                                    section += f"- {deliverable['description']} (No date provided)\n"
+                    
+                        if filled_count == 0:
+                            section += "No work schedule has been defined.\n"
+                    else:
+                        section += "No work schedule has been defined.\n"
 
-                    # Mark section as processed
+                    doc.add_paragraph(section)
                     doc.section3_processed = True
                     continue
 
@@ -676,7 +691,8 @@ def create_document(content, file_format):
                                     row_cells[3].text = f"${details['total']:,.2f}"
                             
                             if has_labor_entries:
-                                total_deliverable_cost = sum(details['total'] for details in deliverable['labor_costs'].values() if isinstance(details, dict))
+                                total_deliverable_cost = sum(details['total'] for details in deliverable['labor_costs'].values() 
+                                                              if isinstance(details, dict))
                                 doc.add_paragraph(f"Total Cost for Deliverable: ${total_deliverable_cost:,.2f}")
                                 doc.add_paragraph()
                     
@@ -2397,9 +2413,58 @@ def main():
                 st.error(f"Error creating entries record: {str(e)}")
 
     # Generate SOW Button
-    st.markdown("---")
-    if st.button("Generate SOW", key="generate_sow_button"):
-        start_sow_generation()
+    if st.button("Generate SOW", type="primary", key="generate_sow"):
+        with st.spinner("Generating SOW..."):
+            try:
+                # Create the SOW document
+                doc = create_sow_document(
+                    st.session_state.questions,
+                    st.session_state.selected_options,
+                    st.session_state.labor_costs,
+                    st.session_state.equipment_costs,
+                    st.session_state.additional_costs,
+                    st.session_state.total_cost
+                )
+                
+                # Save locally first
+                local_docx_path = "generated_sow.docx"
+                local_pdf_path = "generated_sow.pdf"
+                doc.save(local_docx_path)
+                
+                # Convert to PDF
+                convert_to_pdf(local_docx_path, local_pdf_path)
+                
+                # Only attempt cloud storage if explicitly enabled
+                if os.getenv("ENABLE_CLOUD_STORAGE", "false").lower() == "true":
+                    try:
+                        # Upload to GCS
+                        bucket_name = "your-bucket-name"
+                        upload_to_gcs(local_docx_path, bucket_name, f"sows/{os.path.basename(local_docx_path)}")
+                        upload_to_gcs(local_pdf_path, bucket_name, f"sows/{os.path.basename(local_pdf_path)}")
+                    except Exception as e:
+                        print(f"Note: Cloud storage operations skipped - {str(e)}")
+                
+                # Display download buttons
+                with open(local_docx_path, "rb") as docx_file:
+                    st.download_button(
+                        label="Download SOW (DOCX)",
+                        data=docx_file,
+                        file_name="generated_sow.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    )
+                
+                with open(local_pdf_path, "rb") as pdf_file:
+                    st.download_button(
+                        label="Download SOW (PDF)",
+                        data=pdf_file,
+                        file_name="generated_sow.pdf",
+                        mime="application/pdf"
+                    )
+                
+                st.success("SOW generated successfully!")
+                
+            except Exception as e:
+                st.error(f"Error generating SOW: {str(e)}")
 
     if st.session_state.get('sow_generation_started'):
         if 'sow_result' in st.session_state:
@@ -2516,6 +2581,9 @@ def add_deliverables_form():
 
 def upload_to_gcs(file_path, bucket_name, destination_blob_name):
     """Upload a file to Google Cloud Storage."""
+    if os.getenv("ENABLE_CLOUD_STORAGE", "false").lower() != "true":
+        return False
+        
     try:
         storage_client = storage.Client()
         bucket = storage_client.bucket(bucket_name)
@@ -2523,11 +2591,14 @@ def upload_to_gcs(file_path, bucket_name, destination_blob_name):
         blob.upload_from_filename(file_path)
         return True
     except Exception as e:
-        st.warning("Cloud storage upload not available in this deployment")
+        print(f"Note: Cloud storage upload skipped - {str(e)}")
         return False
 
 def download_from_gcs(bucket_name, source_blob_name, destination_file_name):
     """Download a file from Google Cloud Storage."""
+    if os.getenv("ENABLE_CLOUD_STORAGE", "false").lower() != "true":
+        return False
+        
     try:
         storage_client = storage.Client()
         bucket = storage_client.bucket(bucket_name)
@@ -2535,7 +2606,7 @@ def download_from_gcs(bucket_name, source_blob_name, destination_file_name):
         blob.download_to_filename(destination_file_name)
         return True
     except Exception as e:
-        st.warning("Cloud storage download not available in this deployment")
+        print(f"Note: Cloud storage download skipped - {str(e)}")
         return False
 
 if __name__ == "__main__":
