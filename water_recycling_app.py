@@ -18,13 +18,37 @@ try:
 except Exception as e:
     st.error(f"Error importing: {e}")
 
-# Rest of your minimal test app
+# Try initializing the Gemini API
+try:
+    # Configure API key
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+    model = genai.GenerativeModel('gemini-pro')
+    st.success("✅ Successfully connected to Gemini API")
+except Exception as e:
+    st.error(f"Error initializing Gemini API: {e}")
+    st.exception(e)
+
+# Basic app UI
 st.title("Water Recycling Solution Generator")
-st.write("Testing imports and basic functionality.")
+st.write("Testing API connection and form functionality")
 
-# Add a simple interactive element
-if st.button("Click me"):
-    st.success("Button clicked!")
+# Add a simple form
+with st.form("test_form"):
+    name = st.text_input("Enter your name:")
+    company = st.text_input("Enter your company:")
+    submit = st.form_submit_button("Submit")
+    
+    if submit:
+        st.write(f"Hello, {name} from {company}!")
+        
+        # Try a simple AI generation
+        try:
+            prompt = f"Write a short greeting to {name} from {company} about water recycling."
+            response = model.generate_content(prompt)
+            st.write("Gemini says:")
+            st.write(response.text)
+        except Exception as e:
+            st.error(f"Error generating content: {e}")
 
-# Show some basic information
-st.info("If you can see this, the app is working correctly.")
+# Show info message
+st.info("If you can see this, the form and API functions are working.")
