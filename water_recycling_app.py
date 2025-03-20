@@ -43,7 +43,14 @@ import datetime
 import time
 import re
 import streamlit.components.v1 as components
-from streamlit_audio_recorder import st_audio_recorder
+try:
+    from streamlit_audio_recorder import st_audio_recorder
+    audio_recorder_available = True
+except ImportError:
+    audio_recorder_available = False
+    # Create a dummy function to prevent errors
+    def st_audio_recorder(*args, **kwargs):
+        return None
 from pydub import AudioSegment
 import subprocess
 from google.cloud import storage
@@ -1494,6 +1501,8 @@ def get_audio_input(question, key):
     if st.session_state.input_method == 'Audio':
         if not speech_available:
             st.warning("Voice recording functionality is disabled in this deployment")
+        elif not audio_recorder_available:
+            st.warning("Audio recorder functionality is disabled in this deployment")
         else:
             with col2:
                 status_placeholder = st.empty()
@@ -1873,7 +1882,15 @@ def main():
 
     st.markdown("---")
     
-    st.session_state.input_method = st.radio("Choose input method:", ['Text', 'Audio'])
+    # Only show audio input option if both speech and audio recorder are available
+    if speech_available and audio_recorder_available:
+        st.session_state.input_method = st.radio("Choose input method:", ['Text', 'Audio'])
+    else:
+        st.session_state.input_method = 'Text'
+        if not speech_available:
+            st.warning("Speech-to-text functionality is not available in this deployment")
+        if not audio_recorder_available:
+            st.warning("Audio recorder functionality is not available in this deployment")
 
     # Client Information
     st.subheader("Client Information")
