@@ -2506,6 +2506,30 @@ def add_deliverables_form():
         for d in st.session_state.deliverables:
             st.write(f"- {d['name']}: {d['date']}")
 
+def upload_to_gcs(file_path, bucket_name, destination_blob_name):
+    """Upload a file to Google Cloud Storage."""
+    try:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(destination_blob_name)
+        blob.upload_from_filename(file_path)
+        return True
+    except Exception as e:
+        st.warning("Cloud storage upload not available in this deployment")
+        return False
+
+def download_from_gcs(bucket_name, source_blob_name, destination_file_name):
+    """Download a file from Google Cloud Storage."""
+    try:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(source_blob_name)
+        blob.download_to_filename(destination_file_name)
+        return True
+    except Exception as e:
+        st.warning("Cloud storage download not available in this deployment")
+        return False
+
 if __name__ == "__main__":
     import sys
     # Check if running directly with Python
