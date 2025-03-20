@@ -1,6 +1,6 @@
 setuptools>=65.5.0
 distutils-pytest>=0.1.2
-streamlit>=1.27.0  # Newer Streamlit that supports Pillow 10+
+streamlit>=1.27.0
 google-generativeai==0.1.0rc1
 python-dotenv==1.0.1
 numpy>=1.26.0,<2.0.0
@@ -12,3 +12,4 @@ langchain-community==0.2.17
 langchain-huggingface==0.0.3
 sentence-transformers==3.2.1
 faiss-cpu==1.8.0.post1
+google-cloud-speech==2.21.0  # This is the correct package name
