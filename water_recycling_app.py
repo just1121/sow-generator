@@ -70,11 +70,30 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 # Set page config as the first Streamlit command
 st.set_page_config(layout="wide")
 
-# Hide menu and footer
 st.markdown("""
 <style>
+    /* Hide main menu and footer */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
+
+    /* Hide header buttons */
+    header {visibility: hidden !important;}
+    
+    /* Hide specific buttons */
+    .stDeployButton {display:none;}
+    button[title="View fullscreen"] {visibility: hidden;}
+    button[data-testid="baseButton-header"] {visibility: hidden !important;}
+    
+    /* Hide all sharing options */
+    section[data-testid="stSidebarUserContent"] {
+        visibility: hidden !important;
+    }
+    
+    /* Hide GitHub and star buttons */
+    .css-14oi08n {visibility: hidden !important;}
+    .css-10oheav {visibility: hidden !important;}
+    .css-zq5wmm {visibility: hidden !important;}
+    .css-1wmy9rr {visibility: hidden !important;}
 </style>
 """, unsafe_allow_html=True)
 
