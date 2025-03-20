@@ -1842,11 +1842,8 @@ def main():
         unsafe_allow_html=True
     )
 
-    # Change this part near the start of main()
-    if test_bucket_access():
-        pass
-    else:
-        st.error("Could not connect to cloud storage bucket")
+    # Remove the bucket access check message
+    test_bucket_access()
 
     initialize_session_state()
     load_environment()
@@ -2473,15 +2470,16 @@ def save_to_gcloud_bucket(file_buffer, filename, bucket_name="docxdownloads"):
         return False
 
 def test_bucket_access():
+    """Test access to cloud storage bucket, but don't block app if unavailable since audio is disabled."""
     try:
         storage_client = storage.Client()
         bucket = storage_client.bucket("docxdownloads")
         blobs = list(bucket.list_blobs())
-        # Remove the st.write message
         return True
     except Exception as e:
-        st.error(f"Bucket access error: {str(e)}")
-        return False
+        # Just log the error but don't block the app
+        print(f"Note: Cloud storage not available - {str(e)}")
+        return True  # Return True anyway since we don't need cloud storage for basic functionality
 
 def add_deliverables_form():
     with st.form("deliverables_form"):
