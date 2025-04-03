@@ -1292,14 +1292,13 @@ Third Paragraph:
                 services_content = standardize_text(services_content)
                 
                 # Generate remaining sections (without standardization)
-                sections_3_to_9 = (
+                sections_3_to_8 = (
                     f"{generate_section_3()}\n\n"
                     f"{generate_section_4()}\n\n"
                     f"{generate_section_5_costs()}\n\n"
-                    f"{generate_section_6(client_name)}\n\n"
-                    f"{generate_section_7(client_name)}\n\n"
-                    f"{generate_section_8()}\n\n"
-                    f"{generate_section_9()}"
+                    f"{generate_section_7(client_name)}\n\n"  # This becomes section 6
+                    f"{generate_section_8()}\n\n"            # This becomes section 7
+                    f"{generate_section_9()}"                # This becomes section 8
                 )
 
                 combined_content = (
@@ -1310,7 +1309,7 @@ Third Paragraph:
                     f"**1. Description of Services**\n\n"
                     f"{services_content}\n\n"
                     f"{deliverables_content}\n\n"
-                    f"{sections_3_to_9}"
+                    f"{sections_3_to_8}"
                 )
 
                 st.session_state.sow_result = {
@@ -1750,7 +1749,7 @@ def generate_section_6(client_name):
 
 def generate_section_7(client_name):
     section = (
-        "**7. Additional Representations and Warranties.**\n\n In addition to the representations and warranties set forth in the Agreement, "
+        "**6. Additional Representations and Warranties.**\n\n In addition to the representations and warranties set forth in the Agreement, "
         f"Contractor represents and warrants to {client_name} that (i) neither its performance under the Agreement or this SOW nor any "
         f"Deliverable (nor {client_name}'s use thereof) will misappropriate, infringe, violate or interfere with the intellectual "
         f"property or other right of any third party, (ii) it is not aware of, and has not received any notice of, any encroachment "
@@ -1764,14 +1763,14 @@ def generate_section_7(client_name):
 
 def generate_section_8():
     if hasattr(st.session_state, 'additional_terms') and st.session_state.additional_terms:
-        return f"\n**8. Additional Terms**\n\n{st.session_state.additional_terms}"
-    return f"\n**8. Additional Terms**\n\nNone."
+        return f"\n**7. Additional Terms**\n\n{st.session_state.additional_terms}"
+    return f"\n**7. Additional Terms**\n\nNone."
 
 def generate_section_9():
     if hasattr(st.session_state, 'attached_schedules') and st.session_state.attached_schedules:
         schedule_list = "\n• ".join(file.name for file in st.session_state.attached_schedules)
-        return f"\n**9. List of attached SOW Schedules**\n\n {schedule_list}"
-    return f"\n**9. List of attached SOW Schedules**\n\nNone"
+        return f"\n**8. List of attached SOW Schedules**\n\n {schedule_list}"
+    return f"\n**8. List of attached SOW Schedules**\n\nNone"
 
 def generate_section_5():
     """Generate Additional Terms or Payment Terms section, etc."""
