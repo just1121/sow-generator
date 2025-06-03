@@ -447,7 +447,7 @@ def create_document(content, file_format):
                                     has_labor_entries = True
                                     row_cells = table.add_row().cells
                                     row_cells[0].text = role
-                                    row_cells[1].text = details.get('description', '')  # Add description
+                                    row_cells[1].text = details.get('description', '')
                                     row_cells[2].text = f"${details['rate']:.2f}/hr"
                                     row_cells[3].text = f"{details['hours']:.2f}"
                                     row_cells[4].text = f"${details['total']:,.2f}"
@@ -551,7 +551,7 @@ def create_document(content, file_format):
                     "**Deliverable",
                     "|------|",
                     "|------",
-                    "The estimated cost for completion of this scope of work",
+                    "The estimated cost for completion of this Statement of Work",
                     "Efforts not explicitly listed in the table below",
                     "**Additional Expenses**",
                     "Project Totals"
@@ -669,7 +669,7 @@ def create_document(content, file_format):
                     )
                     total_cost = labor_cost + additional_expenses
                     
-                    narrative = (f"The estimated cost for completion of this scope of work is ${total_cost:,.2f}. "
+                    narrative = (f"The estimated cost for completion of this Statement of Work is ${total_cost:,.2f}. "
                                f"The tables below details the estimated efforts required. Material changes to the "
                                f"SOW will be agreed upon in writing and may constitute a change in basis for "
                                f"compensation increasing or decreasing accordingly.\n\n"
@@ -690,7 +690,7 @@ def create_document(content, file_format):
                             p_del_desc = doc.add_paragraph() # Separate paragraph for description if needed, or combine
                             add_markdown_runs(p_del_desc, f"Description: {deliverable.get('description', '')}", apply_base_body_style)
                             
-                            table = doc.add_table(rows=1, cols=4)
+                            table = doc.add_table(rows=1, cols=5)
                             format_table(table)
                             header_cells = table.rows[0].cells
                             header_cells[0].paragraphs[0].add_run('Role').bold = True
@@ -704,17 +704,20 @@ def create_document(content, file_format):
                                 if isinstance(details, dict) and details.get('hours', 0) > 0:
                                     has_labor_entries = True
                                     row_cells = table.add_row().cells
-                                    role_text = f"{role} - {details.get('description', '')}"
-                                    row_cells[0].text = role_text
-                                    row_cells[1].text = f"${details['rate']:.2f}/hr"
-                                    row_cells[2].text = f"{details['hours']:.2f}"
-                                    row_cells[3].text = f"${details['total']:,.2f}"
+                                    row_cells[0].text = role
+                                    row_cells[1].text = details.get('description', '')
+                                    row_cells[2].text = f"${details['rate']:.2f}/hr"
+                                    row_cells[3].text = f"{details['hours']:.2f}"
+                                    row_cells[4].text = f"${details['total']:,.2f}"
                             
                             if has_labor_entries:
                                 total_deliverable_cost = sum(details['total'] for details in deliverable['labor_costs'].values() 
                                                               if isinstance(details, dict))
-                                doc.add_paragraph(f"Total Cost for Deliverable: ${total_deliverable_cost:,.2f}")
-                                doc.add_paragraph()
+                                doc.add_paragraph()  # Add space before total
+                                p = doc.add_paragraph()
+                                p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                                p.add_run("Total Labor Cost for Deliverable: ")
+                                p.add_run(f"${total_deliverable_cost:,.2f}").bold = True
                     
                     # Add Additional Expenses table
                     p_exp_header = doc.add_paragraph()
@@ -1436,19 +1439,21 @@ def create_entries_record():
                         # Only show roles with hours > 0
                         has_labor_entries = False
                         for role, details in deliverable['labor_costs'].items():
-                            if details['hours'] > 0:
+                            if isinstance(details, dict) and details.get('hours', 0) > 0:
                                 has_labor_entries = True
                                 row_cells = table.add_row().cells
-                                role_text = f"{role} - {details.get('description', '')}"
-                                row_cells[0].text = role_text
-                                row_cells[1].text = f"${details['rate']:.2f}/hr"
-                                row_cells[2].text = f"{details['hours']:.2f}"
-                                row_cells[3].text = f"${details['total']:,.2f}"
+                                row_cells[0].text = role
+                                row_cells[1].text = details.get('description', '')  # Add description
+                                row_cells[2].text = f"${details['rate']:.2f}/hr"
+                                row_cells[3].text = f"{details['hours']:.2f}"
+                                row_cells[4].text = f"${details['total']:,.2f}"
                         
                         if has_labor_entries:
-                            total_deliverable_cost = sum(details['total'] for details in deliverable['labor_costs'].values())
+                            total_deliverable_cost = sum(details['total'] for details in deliverable['labor_costs'].values() if isinstance(details, dict))
                             doc.add_paragraph()  # Add space before total
-                            p = doc.add_paragraph("Total Labor Cost for Deliverable: ")
+                            p = doc.add_paragraph()
+                            p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                            p.add_run("Total Labor Cost for Deliverable: ")
                             p.add_run(f"${total_deliverable_cost:,.2f}").bold = True
 
         # Technical Requirements section
@@ -1640,7 +1645,7 @@ def generate_section_5_costs():
     
     # Add narrative
     client_name = st.session_state.questions['client']["answer"].strip()
-    section += (f"The estimated cost for completion of this scope of work is ${total_labor_cost + total_additional:,.2f}. "
+    section += (f"The estimated cost for completion of this Statement of Work is ${total_labor_cost + total_additional:,.2f}. "
                 f"The tables below details the estimated efforts required. Material changes to the "
                 f"SOW will be agreed upon in writing and may constitute a change in basis for "
                 f"compensation increasing or decreasing accordingly.\n\n"
