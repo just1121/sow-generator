@@ -1907,8 +1907,8 @@ def main():
 
     # Client Information
     st.subheader("Client Information")
-    st.session_state.questions['client']["answer"] = st.text_area( # Changed label here
-        "Who is the client?",
+    st.session_state.questions['client']["answer"] = st.text_area(
+        "Who is the newest client?",
         value=st.session_state.questions['client'].get("answer", ""),
         key="text_client",
         height=100
