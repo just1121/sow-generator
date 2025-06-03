@@ -412,7 +412,7 @@ def create_document(content, file_format):
                     )
                     total_cost = labor_cost + additional_expenses
                     
-                    narrative = (f"The estimated cost for completion of this scope of work is ${total_cost:,.2f}. "
+                    narrative = (f"The estimated cost for completion of this Statement of Work is ${total_cost:,.2f}. "
                                f"The tables below details the estimated efforts required. Material changes to the "
                                f"SOW will be agreed upon in writing and may constitute a change in basis for "
                                f"compensation increasing or decreasing accordingly.\n\n"
@@ -574,42 +574,59 @@ def create_document(content, file_format):
                     
                     # Add section header
                     p_header = doc.add_paragraph()
-                    run_header = p_header.add_run("2. Description of Deliverables")
+                    run_header = p_header.add_run("2. Deliverables")
                     apply_base_heading_style(run_header)
                     run_header.bold = True
                     
-                    # Add intro text
-                    p_intro = doc.add_paragraph()
-                    add_markdown_runs(p_intro, "Contractor will provide Deliverables under this SOW as described here:", apply_base_body_style)
+                    # Add intro text for consolidated section
+                    client_name = st.session_state.questions['client']["answer"].strip()
+                    completion_date = st.session_state.get('expected_completion_date', None)
                     
-                    # Format each deliverable with milestones
+                    if completion_date:
+                        formatted_completion_date = completion_date.strftime('%B %d, %Y')
+                        intro_text = f"Contractor will provide all Deliverables to {client_name} by {formatted_completion_date}. Specific deliverable timelines are described below."
+                    else:
+                        intro_text = f"Contractor will provide all Deliverables to {client_name}. Specific deliverable timelines are described below."
+                    
+                    p_intro = doc.add_paragraph()
+                    add_markdown_runs(p_intro, intro_text, apply_base_body_style)
+                    
+                    # Format each deliverable with target dates and milestones
                     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                         if deliverable.get('description', '').strip():
-                            deliverable_text = f"Deliverable {i} {deliverable['description']}"
-                            
-                            # Add milestone information if exists
-                            if deliverable.get('milestones') and len(deliverable['milestones']) > 0:
-                                milestone_count = sum(1 for m in deliverable['milestones'] if m.get('description'))
-                                
-                                if milestone_count == 1:
-                                    # Single milestone format
-                                    milestone = next(m for m in deliverable['milestones'] if m.get('description'))
-                                    deliverable_text += f" has one milestone, {milestone.get('description')}."
-                                else:
-                                    # Multiple milestones format
-                                    deliverable_text += f" has {milestone_count} milestones"
-                            
-                            # Add period if not already present
-                            if not deliverable_text.endswith('.'):
-                                deliverable_text += '.'
+                            target_date = deliverable.get('target_date')
+                            if target_date:
+                                date_str = target_date.strftime('%B %d, %Y')
+                                deliverable_text = f"Deliverable {i}: {deliverable['description']} - Target: {date_str}"
+                            else:
+                                deliverable_text = f"Deliverable {i}: {deliverable['description']} - Target: (No date provided)"
                             
                             p_del_text = doc.add_paragraph()
                             add_markdown_runs(p_del_text, deliverable_text, apply_base_body_style)
+                            
+                            # Add milestone information if exists
+                            if deliverable.get('milestones') and len(deliverable['milestones']) > 0:
+                                for j, milestone in enumerate(deliverable['milestones'], 1):
+                                    if milestone.get('description'):
+                                        milestone_date = milestone.get('due_date')
+                                        if milestone_date:
+                                            milestone_date_str = milestone_date.strftime('%B %d, %Y')
+                                            milestone_text = f"- Milestone {j}: {milestone.get('description')} by {milestone_date_str}"
+                                        else:
+                                            milestone_text = f"- Milestone {j}: {milestone.get('description')} (No date provided)"
+                                        
+                                        p_milestone = doc.add_paragraph()
+                                        add_markdown_runs(p_milestone, milestone_text, apply_base_body_style)
+
+                    doc.section2_processed = True
+                    continue
 
                 # Add comprehensive skip conditions
                 elif in_section_2 and any(marker in paragraph for marker in [
                     "Contractor will provide Deliverables under this SOW as described here",
+                    "Contractor will provide all Deliverables",
                     "**2. Description of Deliverables**",
+                    "**2. Deliverables**",
                     "**Deliverable",
                     "• Deliverable",
                     "- Deliverable",
@@ -620,80 +637,24 @@ def create_document(content, file_format):
                 ]):
                     continue
 
-                elif "3. Work Schedule" in paragraph:
-                    # Check processed flag immediately
-                    if hasattr(doc, 'section3_processed'):
-                        continue
-                        
-                    in_section_3 = True  # Set flag when entering Section 3
-                    
-                    # Add section header
+                elif "3. Term of this SOW" in paragraph or "**3. Term of this SOW**" in paragraph:
                     p_header = doc.add_paragraph()
-                    run_header = p_header.add_run("3. Work Schedule")
+                    run_header = p_header.add_run("3. Term of this SOW")
                     apply_base_heading_style(run_header)
                     run_header.bold = True
-
-                    # Get completion date directly from session state
-                    completion_date = st.session_state.get('expected_completion_date', None)
-                    
-                    try:
-                        formatted_completion_date = completion_date.strftime('%B %d, %Y')
-                    except Exception as e:
-                        st.error(f"Error formatting completion date: {str(e)}")
-                        formatted_completion_date = str(completion_date)
-
-                    # Build the section as a string
-                    section_text = (f"Contractor will conduct the Services and provide the Deliverables to {client_name} "
-                               f"by {formatted_completion_date}. Specific deliverables and their projected timing "
-                               f"are included below.\n\n")
-                    
-                    section_text += "**Deliverable Schedule:**\n\n" # This part will be parsed by add_markdown_runs
-
-                    # Add deliverables to the schedule
-                    if st.session_state.deliverables:
-                        filled_count = 0
-                        for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
-                            description_filled = bool(deliverable.get('description', '').strip())
-                            if description_filled:
-                                filled_count += 1
-                                target_date = deliverable.get('target_date')
-                                if target_date:
-                                    date_str = target_date.strftime('%B %d, %Y')
-                                    section_text += f"- {deliverable['description']} by {date_str}\n"
-                                else:
-                                    section_text += f"- {deliverable['description']} (No date provided)\n"
-                    
-                        if filled_count == 0:
-                            section_text += "No work schedule has been defined.\n"
-                    else:
-                        section_text += "No work schedule has been defined.\n"
-
-                    p_section3_content = doc.add_paragraph()
-                    add_markdown_runs(p_section3_content, section_text, apply_base_body_style)
-
-                    doc.section3_processed = True
-                    continue
-
-                # Skip any content that would create duplicate entries
-                elif any(skip_text in paragraph for skip_text in [
-                    "Contractor will conduct the Services and provide the Deliverables",
-                    "Deliverable Schedule:",
-                    "Project End Date:",
-                    "- "  # This will catch all dash-formatted lines
-                ]):
                     continue
 
                 elif "4. Term of this SOW" in paragraph or "**4. Term of this SOW**" in paragraph:
                     p_header = doc.add_paragraph()
-                    run_header = p_header.add_run("4. Term of this SOW")
+                    run_header = p_header.add_run("3. Term of this SOW")
                     apply_base_heading_style(run_header)
                     run_header.bold = True
                     continue
 
-                elif "5. Basis for Compensation" in paragraph:
-                    in_section_5 = True  # Set flag when entering Section 5
+                elif "4. Basis for Compensation" in paragraph:
+                    in_section_5 = True  # Set flag when entering Section 4 (previously 5)
                     p_header = doc.add_paragraph()
-                    run_header = p_header.add_run("5. Basis for Compensation")
+                    run_header = p_header.add_run("4. Basis for Compensation")
                     apply_base_heading_style(run_header)
                     run_header.bold = True
 
@@ -808,9 +769,9 @@ def create_document(content, file_format):
                     run_header.bold = True
                     continue
 
-                elif "7. Additional Representations and Warranties" in paragraph:
+                elif "5. Additional Representations and Warranties" in paragraph:
                     p_header = doc.add_paragraph()
-                    run_header = p_header.add_run("7. Additional Representations and Warranties")
+                    run_header = p_header.add_run("5. Additional Representations and Warranties")
                     apply_base_heading_style(run_header)
                     run_header.bold = True
                     
@@ -830,16 +791,16 @@ def create_document(content, file_format):
                     add_markdown_runs(p_warranty_content, warranty_text, apply_base_body_style)
                     continue
 
-                elif "8. Additional Terms" in paragraph:
+                elif "6. Additional Terms" in paragraph:
                     p_header = doc.add_paragraph()
-                    run_header = p_header.add_run("8. Additional Terms")
+                    run_header = p_header.add_run("6. Additional Terms")
                     apply_base_heading_style(run_header)
                     run_header.bold = True
                     continue
 
-                elif "9. List of" in paragraph:
+                elif "7. List of" in paragraph:
                     p_header = doc.add_paragraph()
-                    run_header = p_header.add_run("9. List of attached SOW Schedules")
+                    run_header = p_header.add_run("7. List of attached SOW Schedules")
                     apply_base_heading_style(run_header)
                     run_header.bold = True
                     continue
@@ -1219,34 +1180,43 @@ def generate_sow():  # no longer async
             # Generate legal preamble
             legal_preamble = generate_legal_preamble(client_name, client_address, effective_date, st.session_state.master_terms_date)
 
-            # Format deliverables in natural language
-            deliverables_text = "\n\n**2. Description of Deliverables**\n\n"
-            deliverables_text += "Contractor will provide Deliverables under this SOW as described here\n\n"
-            
+            # Format deliverables in natural language - NEW CONSOLIDATED FORMAT
+            completion_date = st.session_state.get('expected_completion_date', None)
+
+            if not completion_date:
+                st.error("Completion date is not provided.")
+                return
+
+            try:
+                formatted_completion_date = completion_date.strftime('%B %d, %Y')
+            except Exception as e:
+                st.error(f"Error formatting completion date: {str(e)}")
+                return
+
+            deliverables_text = "\n\n**2. Deliverables**\n\n"
+            deliverables_text += f"Contractor will provide all Deliverables to {client_name} by {formatted_completion_date}. Specific deliverable timelines are described below.\n\n"
+
             for deliverable_index, (deliverable_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                 if deliverable.get('description'):
-                    # Start with deliverable description
-                    deliverable_text = f"- Deliverable {deliverable_index} {deliverable.get('description')}"
+                    # Start with deliverable description and target date
+                    target_date = deliverable.get('target_date')
+                    if target_date:
+                        date_str = target_date.strftime('%B %d, %Y')
+                        deliverable_text = f"**Deliverable {deliverable_index}: {deliverable.get('description')}** - Target: {date_str}\n"
+                    else:
+                        deliverable_text = f"**Deliverable {deliverable_index}: {deliverable.get('description')}** - Target: (No date provided)\n"
                     
                     # Add milestone information if exists
                     if 'milestones' in deliverable and any(m.get('description') for m in deliverable['milestones']):
-                        milestone_count = sum(1 for m in deliverable['milestones'] if m.get('description'))
-                        
-                        if milestone_count == 1:
-                            # Single milestone format
-                            milestone = next(m for m in deliverable['milestones'] if m.get('description'))
-                            deliverable_text += f" has one milestone, {milestone.get('description')}."
-                        else:
-                            # Multiple milestones format
-                            deliverable_text += f" has {milestone_count} milestones\n"
-                            for milestone in deliverable['milestones']:
-                                if milestone.get('description'):
-                                    deliverable_text += f"  - {milestone.get('description')}"
+                        for j, milestone in enumerate(deliverable['milestones'], 1):
+                            if milestone.get('description'):
+                                milestone_date = milestone.get('due_date')
+                                if milestone_date:
+                                    milestone_date_str = milestone_date.strftime('%B %d, %Y')
+                                    deliverable_text += f"- Milestone {j}: {milestone.get('description')} by {milestone_date_str}\n"
+                                else:
+                                    deliverable_text += f"- Milestone {j}: {milestone.get('description')} (No date provided)\n"
                     
-                    # Add period if not already present and no milestones were added
-                    if not deliverable_text.endswith('.'):
-                        deliverable_text += '.'
-                        
                     deliverables_text += deliverable_text + "\n"
 
             prompt = f"""
@@ -1344,12 +1314,11 @@ Third Paragraph:
                 
                 # Generate remaining sections (without standardization)
                 sections_3_to_8 = (
-                    f"{generate_section_3()}\n\n"
-                    f"{generate_section_4()}\n\n"
-                    f"{generate_section_5_costs()}\n\n"
-                    f"{generate_section_7(client_name)}\n\n"  # This becomes section 6
-                    f"{generate_section_8()}\n\n"            # This becomes section 7
-                    f"{generate_section_9()}"                # This becomes section 8
+                    f"{generate_section_4()}\n\n"      # This becomes section 3
+                    f"{generate_section_5_costs()}\n\n"  # This becomes section 4  
+                    f"{generate_section_7(client_name)}\n\n"  # This becomes section 5
+                    f"{generate_section_8()}\n\n"            # This becomes section 6
+                    f"{generate_section_9()}"                # This becomes section 7
                 )
 
                 combined_content = (
@@ -1671,14 +1640,13 @@ def generate_section_3():
                f"by {formatted_completion_date}. Specific deliverables and their projected timing "
                f"are included below.\n\n")
     
-    section += "**Deliverable Schedule:**\n\n"
+    section += "**Deliverable Schedule:**\n\n" # This part will be parsed by add_markdown_runs
 
     # Add deliverables to the schedule
     if st.session_state.deliverables:
         filled_count = 0
         for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
             description_filled = bool(deliverable.get('description', '').strip())
-            # Maybe you want to check deliverable["target_date"] if it's mandatory
             if description_filled:
                 filled_count += 1
                 target_date = deliverable.get('target_date')
@@ -1696,7 +1664,7 @@ def generate_section_3():
     return section
 
 def generate_section_4():
-    """Generate Section 4 with timeline data from session state"""
+    """Generate Section 3 with timeline data from session state"""
     
     # Get effective date directly from session state where it's already stored
     effective_date = st.session_state.effective_date
@@ -1716,7 +1684,7 @@ def generate_section_4():
         logging.warning(f"Could not standardize completion date: {str(e)}")
         return
 
-    section_4 = "**4. Term of this SOW**\n\n"
+    section_4 = "**3. Term of this SOW**\n\n"
     if effective_date and formatted_completion_date:
         section_4 += (f"This SOW shall be effective as of {effective_date.strftime('%B %d, %Y')} "
                      f"and shall remain in effect until the completion of all services and deliverables by {formatted_completion_date}.")
@@ -1726,8 +1694,8 @@ def generate_section_4():
     return section_4
 
 def generate_section_5_costs():
-    """Generate Section 5: Basis for Compensation"""
-    section = "**5. Basis for Compensation**\n\n"
+    """Generate Section 4: Basis for Compensation"""
+    section = "**4. Basis for Compensation**\n\n"
     
     # Calculate totals
     total_labor_cost = sum(
@@ -1800,7 +1768,7 @@ def generate_section_6(client_name):
 
 def generate_section_7(client_name):
     section = (
-        "**6. Additional Representations and Warranties.**\n\n In addition to the representations and warranties set forth in the Agreement, "
+        "**5. Additional Representations and Warranties.**\n\n In addition to the representations and warranties set forth in the Agreement, "
         f"Contractor represents and warrants to {client_name} that (i) neither its performance under the Agreement or this SOW nor any "
         f"Deliverable (nor {client_name}'s use thereof) will misappropriate, infringe, violate or interfere with the intellectual "
         f"property or other right of any third party, (ii) it is not aware of, and has not received any notice of, any encroachment "
@@ -1814,14 +1782,14 @@ def generate_section_7(client_name):
 
 def generate_section_8():
     if hasattr(st.session_state, 'additional_terms') and st.session_state.additional_terms:
-        return f"\n**7. Additional Terms**\n\n{st.session_state.additional_terms}"
-    return f"\n**7. Additional Terms**\n\nNone."
+        return f"\n**6. Additional Terms**\n\n{st.session_state.additional_terms}"
+    return f"\n**6. Additional Terms**\n\nNone."
 
 def generate_section_9():
     if hasattr(st.session_state, 'attached_schedules') and st.session_state.attached_schedules:
         schedule_list = "\n• ".join(file.name for file in st.session_state.attached_schedules)
-        return f"\n**8. List of attached SOW Schedules**\n\n {schedule_list}"
-    return f"\n**8. List of attached SOW Schedules**\n\nNone"
+        return f"\n**7. List of attached SOW Schedules**\n\n {schedule_list}"
+    return f"\n**7. List of attached SOW Schedules**\n\nNone"
 
 def generate_section_5():
     """Generate Additional Terms or Payment Terms section, etc."""
@@ -1872,7 +1840,7 @@ def generate_section_5():
 #     - Close: Highlight benefits and confidence in success
 #     
 #     Using this input:
-#     Project Details: {user_input}
+#     Project Details: {user_input} 
 #     Additional Context: {additional_statements}
 #     
 #     Create a flowing 2-3 paragraph narrative that builds trust while showcasing your understanding and capability.
