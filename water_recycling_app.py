@@ -7,7 +7,6 @@ from docx import Document
 from docx.enum.style import WD_STYLE_TYPE
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import nsdecls, qn  # Added qn here
 from docx.shared import RGBColor
 import logging
@@ -306,19 +305,15 @@ def create_document(content, file_format):
         buffer = io.BytesIO()
         doc = Document()
         
-        # Get client name at the start
-        client_name = st.session_state.questions['client']["answer"].strip()
-        
-        def apply_heading_style(paragraph):
-            for run in paragraph.runs:
-                run.font.name = 'Calibri'
-                run.font.size = Pt(12)
-                run.font.bold = True
-                
-        def apply_body_style(paragraph):
-            for run in paragraph.runs:
-                run.font.name = 'Calibri'
-                run.font.size = Pt(11)
+        client_name = st.session_state.questions['client']["answer"].strip() # Keep client_name accessible
+
+        def apply_base_heading_style(run_obj):
+            run_obj.font.name = 'Calibri'
+            run_obj.font.size = Pt(12)
+
+        def apply_base_body_style(run_obj):
+            run_obj.font.name = 'Calibri'
+            run_obj.font.size = Pt(11)
 
         def format_table(table):
             """Apply consistent formatting to tables"""
@@ -331,6 +326,40 @@ def create_document(content, file_format):
             # Set column widths if needed
             table.autofit = False
             table.allow_autofit = False
+
+        def add_markdown_runs(paragraph_obj, text, base_style_func):
+            """Parses markdown bold/italic and adds runs to a paragraph object."""
+            is_bold = False
+            is_italic = False
+            buffer = ""
+            i = 0
+            while i < len(text):
+                if text[i:i+2] == '**': # Bold
+                    if buffer:
+                        run = paragraph_obj.add_run(buffer)
+                        base_style_func(run)
+                        run.bold = is_bold
+                        run.italic = is_italic
+                        buffer = ""
+                    is_bold = not is_bold
+                    i += 2
+                elif text[i] == '*' and (i + 1 >= len(text) or text[i+1] != '*'): # Italic
+                    if buffer:
+                        run = paragraph_obj.add_run(buffer)
+                        base_style_func(run)
+                        run.bold = is_bold
+                        run.italic = is_italic
+                        buffer = ""
+                    is_italic = not is_italic
+                    i += 1
+                else:
+                    buffer += text[i]
+                    i += 1
+            if buffer: # Add any remaining text
+                run = paragraph_obj.add_run(buffer)
+                base_style_func(run)
+                run.bold = is_bold
+                run.italic = is_italic
 
         if content:
             paragraphs = [p for p in content.split('\n\n') if p.strip()]
@@ -367,8 +396,10 @@ def create_document(content, file_format):
 
                 if "5. Basis for Compensation" in paragraph:
                     in_section_5 = True  # Set flag when entering Section 5
-                    p = doc.add_paragraph("5. Basis for Compensation")
-                    apply_heading_style(p)
+                    p_header = doc.add_paragraph()
+                    run_header = p_header.add_run("5. Basis for Compensation")
+                    apply_base_heading_style(run_header)
+                    run_header.bold = True
                     
                     # Add narrative
                     labor_cost = sum(details['total'] for deliverable in st.session_state.deliverables.values() 
@@ -389,15 +420,17 @@ def create_document(content, file_format):
                                f"These efforts include, but are not limited to, onsite laboratory testing, offsite laboratory "
                                f"testing, and pilot system operation.")
                     
-                    p = doc.add_paragraph(narrative)
-                    apply_body_style(p)
+                    p_narrative = doc.add_paragraph()
+                    add_markdown_runs(p_narrative, narrative, apply_base_body_style)
                     
                     # Add deliverable labor cost tables
                     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                         if isinstance(deliverable.get('labor_costs'), dict):
-                            p = doc.add_paragraph(f"Deliverable {i}: {deliverable.get('description', '')}")
-                            apply_heading_style(p)
-                            
+                            p_del_header = doc.add_paragraph()
+                            run_del_header = p_del_header.add_run(f"Deliverable {i}: {deliverable.get('description', '')}")
+                            apply_base_heading_style(run_del_header)
+                            run_del_header.bold = True
+
                             table = doc.add_table(rows=1, cols=5)
                             format_table(table)
                             table.alignment = WD_TABLE_ALIGNMENT.RIGHT  # Align table to the right
@@ -428,8 +461,10 @@ def create_document(content, file_format):
                                 p.add_run(f"${total_deliverable_cost:,.2f}").bold = True
                     
                     # Add Additional Expenses table
-                    p = doc.add_paragraph("Additional Expenses")
-                    apply_heading_style(p)
+                    p_exp_header = doc.add_paragraph()
+                    run_exp_header = p_exp_header.add_run("Additional Expenses")
+                    apply_base_heading_style(run_exp_header)
+                    run_exp_header.bold = True
                     
                     table = doc.add_table(rows=1, cols=3)
                     format_table(table)
@@ -480,8 +515,10 @@ def create_document(content, file_format):
                     row_cells[2].text = f'${additional_expenses:,.2f}'  # Amount in last column
                     
                     # Add Project Totals table
-                    p = doc.add_paragraph("Project Totals")
-                    apply_heading_style(p)
+                    p_total_header = doc.add_paragraph()
+                    run_total_header = p_total_header.add_run("Project Totals")
+                    apply_base_heading_style(run_total_header)
+                    run_total_header.bold = True
                     
                     table = doc.add_table(rows=1, cols=2)
                     format_table(table)
@@ -522,8 +559,10 @@ def create_document(content, file_format):
                     continue
 
                 if "**Executive Summary**" in paragraph:
-                    p = doc.add_paragraph("Executive Summary")
-                    apply_heading_style(p)
+                    p_header = doc.add_paragraph()
+                    run_header = p_header.add_run("Executive Summary")
+                    apply_base_heading_style(run_header)
+                    run_header.bold = True
                     continue
 
                 elif "2. Description of Deliverables" in paragraph:
@@ -534,12 +573,14 @@ def create_document(content, file_format):
                     in_section_2 = True  # Set flag when entering Section 2
                     
                     # Add section header
-                    p = doc.add_paragraph("2. Description of Deliverables")
-                    apply_heading_style(p)
+                    p_header = doc.add_paragraph()
+                    run_header = p_header.add_run("2. Description of Deliverables")
+                    apply_base_heading_style(run_header)
+                    run_header.bold = True
                     
                     # Add intro text
-                    p = doc.add_paragraph("Contractor will provide Deliverables under this SOW as described here:")
-                    apply_body_style(p)
+                    p_intro = doc.add_paragraph()
+                    add_markdown_runs(p_intro, "Contractor will provide Deliverables under this SOW as described here:", apply_base_body_style)
                     
                     # Format each deliverable with milestones
                     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
@@ -561,9 +602,9 @@ def create_document(content, file_format):
                             # Add period if not already present
                             if not deliverable_text.endswith('.'):
                                 deliverable_text += '.'
-                                
-                            p = doc.add_paragraph(deliverable_text)
-                            apply_body_style(p)
+                            
+                            p_del_text = doc.add_paragraph()
+                            add_markdown_runs(p_del_text, deliverable_text, apply_base_body_style)
 
                 # Add comprehensive skip conditions
                 elif in_section_2 and any(marker in paragraph for marker in [
@@ -587,8 +628,10 @@ def create_document(content, file_format):
                     in_section_3 = True  # Set flag when entering Section 3
                     
                     # Add section header
-                    p = doc.add_paragraph("3. Work Schedule")
-                    apply_heading_style(p)
+                    p_header = doc.add_paragraph()
+                    run_header = p_header.add_run("3. Work Schedule")
+                    apply_base_heading_style(run_header)
+                    run_header.bold = True
 
                     # Get completion date directly from session state
                     completion_date = st.session_state.get('expected_completion_date', None)
@@ -600,35 +643,34 @@ def create_document(content, file_format):
                         formatted_completion_date = str(completion_date)
 
                     # Build the section as a string
-                    section = "**3. Work Schedule**\n\n"
-                    
-                    section += (f"Contractor will conduct the Services and provide the Deliverables to {client_name} "
+                    section_text = (f"Contractor will conduct the Services and provide the Deliverables to {client_name} "
                                f"by {formatted_completion_date}. Specific deliverables and their projected timing "
                                f"are included below.\n\n")
                     
-                    section += "**Deliverable Schedule:**\n\n"
+                    section_text += "**Deliverable Schedule:**\n\n" # This part will be parsed by add_markdown_runs
 
                     # Add deliverables to the schedule
                     if st.session_state.deliverables:
                         filled_count = 0
                         for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                             description_filled = bool(deliverable.get('description', '').strip())
-                            # Maybe you want to check deliverable["target_date"] if it's mandatory
                             if description_filled:
                                 filled_count += 1
                                 target_date = deliverable.get('target_date')
                                 if target_date:
                                     date_str = target_date.strftime('%B %d, %Y')
-                                    section += f"- {deliverable['description']} by {date_str}\n"
+                                    section_text += f"- {deliverable['description']} by {date_str}\n"
                                 else:
-                                    section += f"- {deliverable['description']} (No date provided)\n"
+                                    section_text += f"- {deliverable['description']} (No date provided)\n"
                     
                         if filled_count == 0:
-                            section += "No work schedule has been defined.\n"
+                            section_text += "No work schedule has been defined.\n"
                     else:
-                        section += "No work schedule has been defined.\n"
+                        section_text += "No work schedule has been defined.\n"
 
-                    doc.add_paragraph(section)
+                    p_section3_content = doc.add_paragraph()
+                    add_markdown_runs(p_section3_content, section_text, apply_base_body_style)
+
                     doc.section3_processed = True
                     continue
 
@@ -642,15 +684,19 @@ def create_document(content, file_format):
                     continue
 
                 elif "4. Term of this SOW" in paragraph or "**4. Term of this SOW**" in paragraph:
-                    p = doc.add_paragraph("4. Term of this SOW")
-                    apply_heading_style(p)
+                    p_header = doc.add_paragraph()
+                    run_header = p_header.add_run("4. Term of this SOW")
+                    apply_base_heading_style(run_header)
+                    run_header.bold = True
                     continue
 
                 elif "5. Basis for Compensation" in paragraph:
                     in_section_5 = True  # Set flag when entering Section 5
-                    p = doc.add_paragraph("5. Basis for Compensation")
-                    apply_heading_style(p)
-                    
+                    p_header = doc.add_paragraph()
+                    run_header = p_header.add_run("5. Basis for Compensation")
+                    apply_base_heading_style(run_header)
+                    run_header.bold = True
+
                     # Add narrative
                     labor_cost = sum(details['total'] for deliverable in st.session_state.deliverables.values() 
                                   for details in deliverable.get('labor_costs', {}).values() 
@@ -670,17 +716,18 @@ def create_document(content, file_format):
                                f"These efforts include, but are not limited to, onsite laboratory testing, offsite laboratory "
                                f"testing, and pilot system operation.")
                     
-                    p = doc.add_paragraph(narrative)
-                    apply_body_style(p)
+                    p_narrative = doc.add_paragraph()
+                    add_markdown_runs(p_narrative, narrative, apply_base_body_style)
                     
                     # Add deliverable labor cost tables
                     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                         if isinstance(deliverable.get('labor_costs'), dict):
-                            p = doc.add_paragraph(f"Deliverable {i}")
-                            apply_heading_style(p)
-                            
-                            p = doc.add_paragraph(f"Description: {deliverable.get('description', '')}")
-                            apply_body_style(p)
+                            p_del_header = doc.add_paragraph()
+                            run_del_header = p_del_header.add_run(f"Deliverable {i}") # Description is part of the header here
+                            apply_base_heading_style(run_del_header)
+                            run_del_header.bold = True
+                            p_del_desc = doc.add_paragraph() # Separate paragraph for description if needed, or combine
+                            add_markdown_runs(p_del_desc, f"Description: {deliverable.get('description', '')}", apply_base_body_style)
                             
                             table = doc.add_table(rows=1, cols=4)
                             format_table(table)
@@ -709,8 +756,10 @@ def create_document(content, file_format):
                                 doc.add_paragraph()
                     
                     # Add Additional Expenses table
-                    p = doc.add_paragraph("Additional Expenses")
-                    apply_heading_style(p)
+                    p_exp_header = doc.add_paragraph()
+                    run_exp_header = p_exp_header.add_run("Additional Expenses")
+                    apply_base_heading_style(run_exp_header)
+                    run_exp_header.bold = True
                     
                     table = doc.add_table(rows=1, cols=2)
                     format_table(table)
@@ -724,8 +773,10 @@ def create_document(content, file_format):
                     row_cells[1].text = f'${additional_expenses:,.2f}'
                     
                     # Add Project Totals table
-                    p = doc.add_paragraph("Project Totals")
-                    apply_heading_style(p)
+                    p_total_header = doc.add_paragraph()
+                    run_total_header = p_total_header.add_run("Project Totals")
+                    apply_base_heading_style(run_total_header)
+                    run_total_header.bold = True
                     
                     table = doc.add_table(rows=1, cols=2)
                     format_table(table)
@@ -751,13 +802,17 @@ def create_document(content, file_format):
 
                 elif "6. Title and Risk of Loss" in paragraph:
                     in_section_5 = False  # Reset flag
-                    p = doc.add_paragraph("6. Title and Risk of Loss")
-                    apply_heading_style(p)
+                    p_header = doc.add_paragraph()
+                    run_header = p_header.add_run("6. Title and Risk of Loss")
+                    apply_base_heading_style(run_header)
+                    run_header.bold = True
                     continue
 
                 elif "7. Additional Representations and Warranties" in paragraph:
-                    p = doc.add_paragraph("7. Additional Representations and Warranties")
-                    apply_heading_style(p)
+                    p_header = doc.add_paragraph()
+                    run_header = p_header.add_run("7. Additional Representations and Warranties")
+                    apply_base_heading_style(run_header)
+                    run_header.bold = True
                     
                     warranty_text = ("In addition to the representations and warranties set forth in the Agreement, "
                                     "Contractor represents and warrants to " + st.session_state.questions['client']['answer'] + 
@@ -771,20 +826,26 @@ def create_document(content, file_format):
                                     "any software, hardware or system, and (iv) it will not lose or corrupt " + 
                                     st.session_state.questions['client']['answer'] + "'s data (including, without limitation, third-party data).")
                     
-                    p = doc.add_paragraph(warranty_text)
-                    apply_body_style(p)
+                    p_warranty_content = doc.add_paragraph()
+                    add_markdown_runs(p_warranty_content, warranty_text, apply_base_body_style)
                     continue
 
                 elif "8. Additional Terms" in paragraph:
-                    p = doc.add_paragraph("8. Additional Terms")
-                    apply_heading_style(p)
+                    p_header = doc.add_paragraph()
+                    run_header = p_header.add_run("8. Additional Terms")
+                    apply_base_heading_style(run_header)
+                    run_header.bold = True
                     continue
 
                 elif "9. List of" in paragraph:
-                    p = doc.add_paragraph("9. List of attached SOW Schedules")
-                    apply_heading_style(p)
+                    p_header = doc.add_paragraph()
+                    run_header = p_header.add_run("9. List of attached SOW Schedules")
+                    apply_base_heading_style(run_header)
+                    run_header.bold = True
                     continue
 
+                # This handles markdown tables for milestones if they appear directly in the content stream
+                # It's separate from the structured milestone handling within specific sections.
                 elif '|' in paragraph and 'Milestone' in paragraph:
                     table = doc.add_table(rows=1, cols=3)
                     format_table(table)
@@ -804,20 +865,10 @@ def create_document(content, file_format):
                     doc.add_paragraph()  # Add spacing
                     continue
 
+                # General paragraph handling: use add_markdown_runs
                 else:
-                    # Handle section headers (any numbered section)
-                    if paragraph.startswith('**') and paragraph.endswith('**'):
-                        # Remove markdown and check if it's a numbered section
-                        clean_text = paragraph.strip('**')
-                        if any(f"{i}." in clean_text for i in range(1, 10)):  # Handles sections 1-9
-                            p = doc.add_paragraph(clean_text)
-                            apply_heading_style(p)
-                        else:
-                            p = doc.add_paragraph(paragraph)
-                            apply_body_style(p)
-                    else:
-                        p = doc.add_paragraph(paragraph)
-                        apply_body_style(p)
+                    p_general = doc.add_paragraph()
+                    add_markdown_runs(p_general, paragraph, apply_base_body_style)
 
             # Handle attached schedules
             if hasattr(st.session_state, 'attached_schedules') and st.session_state.attached_schedules:
