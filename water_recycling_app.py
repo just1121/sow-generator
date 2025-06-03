@@ -1578,90 +1578,16 @@ def generate_legal_preamble(client_name, client_address, sow_date, master_terms_
     return preamble
 
 def format_deliverables_section():
-    """Generate Description of Deliverables section"""
-    content = []
-    
-    # Check if deliverables exist
-    if not st.session_state.deliverables:
-        return "No deliverables have been defined.\n"
-    
-    # Add section header
-    content.append("Contractor will provide Deliverables under this SOW as described here:\n")
-    
-    # Format each deliverable
-    for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
-        if deliverable.get('description', '').strip():  # Only include if description exists
-            content.append(f"\n**Deliverable {i}: {deliverable['description']}**")
-            
-            # Add milestone table if milestones exist
-            if deliverable.get('milestones') and len(deliverable['milestones']) > 0:
-                content.append("\n| Milestone | Description | Target Date |")
-                content.append("|-----------|-------------|-------------|")
-                
-                for j, milestone in enumerate(deliverable['milestones'], 1):
-                    content.append(
-                        f"| {j} | {milestone.get('description', '')} | "
-                        f"{milestone['due_date'].strftime('%B %d, %Y')} |"
-                    )
-                content.append("")  # Add spacing after table
-            
-            # Add equipment and services if present
-            if deliverable.get('equipment_provided'):
-                content.append(f"\n**Equipment Provided:**\n{deliverable['equipment_provided']}")
-            if deliverable.get('additional_services'):
-                content.append(f"\n**Additional Services:**\n{deliverable['additional_services']}")
-    
-    return "\n".join(content)
+    """Generate consolidated Deliverables section"""
+    # This function has been replaced by inline deliverables_text generation in generate_sow()
+    # Return empty string or redirect to new format
+    return ""
 
 def generate_section_3():
-    """Generate Work Schedule section with improved formatting"""
-    # Retrieve and strip the client name
-    client_name = st.session_state.questions['client']["answer"].strip()
-    
-    # Attempt to retrieve the completion date from session state
-    completion_date = st.session_state.get('expected_completion_date', None)
-
-    # Check if completion_date is empty
-    if not completion_date:
-        st.error("Completion date is not provided.")
-        return
-
-    # Format completion date
-    try:
-        formatted_completion_date = completion_date.strftime('%B %d, %Y')
-    except Exception as e:
-        st.error(f"Error formatting completion date: {str(e)}")
-        return
-
-    # Build the section as a string
-    section = "**3. Work Schedule**\n\n"
-    
-    section += (f"Contractor will conduct the Services and provide the Deliverables to {client_name} "
-               f"by {formatted_completion_date}. Specific deliverables and their projected timing "
-               f"are included below.\n\n")
-    
-    section += "**Deliverable Schedule:**\n\n" # This part will be parsed by add_markdown_runs
-
-    # Add deliverables to the schedule
-    if st.session_state.deliverables:
-        filled_count = 0
-        for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
-            description_filled = bool(deliverable.get('description', '').strip())
-            if description_filled:
-                filled_count += 1
-                target_date = deliverable.get('target_date')
-                if target_date:
-                    date_str = target_date.strftime('%B %d, %Y')
-                    section += f"- {deliverable['description']} by {date_str}\n"
-                else:
-                    section += f"- {deliverable['description']} (No date provided)\n"
-        
-        if filled_count == 0:
-            section += "No work schedule has been defined.\n"
-    else:
-        section += "No work schedule has been defined.\n"
-
-    return section
+    """This section has been consolidated into Section 2: Deliverables"""
+    # Section 3 Work Schedule has been consolidated into Section 2: Deliverables
+    # This function is no longer used
+    return ""
 
 def generate_section_4():
     """Generate Section 3 with timeline data from session state"""
