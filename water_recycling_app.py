@@ -416,7 +416,13 @@ def create_document(content, file_format):
                             
                             # Equipment rentals
                             if additional_costs.get('equipment_rentals', {}).get('enabled', False):
-                                total_deliverable_additional_costs += additional_costs['equipment_rentals']['amount']
+                                equipment_rentals = additional_costs['equipment_rentals']
+                                if 'items' in equipment_rentals:
+                                    # New format with multiple items
+                                    total_deliverable_additional_costs += sum(item.get('amount', 0) for item in equipment_rentals['items'])
+                                else:
+                                    # Old format compatibility
+                                    total_deliverable_additional_costs += equipment_rentals.get('amount', 0)
                             
                             # Mileage
                             if additional_costs.get('mileage', {}).get('enabled', False):
@@ -512,13 +518,28 @@ def create_document(content, file_format):
                                     
                                     # Equipment rentals
                                     if additional_costs.get('equipment_rentals', {}).get('enabled', False):
-                                        amount = additional_costs['equipment_rentals']['amount']
-                                        desc = additional_costs['equipment_rentals']['description']
-                                        row_cells = add_table.add_row().cells
-                                        row_cells[0].text = 'Equipment Rentals'
-                                        row_cells[1].text = desc
-                                        row_cells[2].text = f"${amount:,.2f}"
-                                        deliverable_additional_total += amount
+                                        equipment_rentals = additional_costs['equipment_rentals']
+                                        if 'items' in equipment_rentals:
+                                            # New format with multiple items
+                                            for item in equipment_rentals['items']:
+                                                amount = item.get('amount', 0)
+                                                desc = item.get('description', '')
+                                                if amount > 0 or desc:
+                                                    row_cells = add_table.add_row().cells
+                                                    row_cells[0].text = 'Equipment Rentals'
+                                                    row_cells[1].text = desc
+                                                    row_cells[2].text = f"${amount:,.2f}"
+                                                    deliverable_additional_total += amount
+                                        else:
+                                            # Old format compatibility
+                                            amount = equipment_rentals.get('amount', 0)
+                                            desc = equipment_rentals.get('description', '')
+                                            if amount > 0 or desc:
+                                                row_cells = add_table.add_row().cells
+                                                row_cells[0].text = 'Equipment Rentals'
+                                                row_cells[1].text = desc
+                                                row_cells[2].text = f"${amount:,.2f}"
+                                                deliverable_additional_total += amount
                                     
                                     # Mileage
                                     if additional_costs.get('mileage', {}).get('enabled', False):
@@ -1629,7 +1650,13 @@ def create_entries_record():
                 
                 # Equipment rentals
                 if additional_costs.get('equipment_rentals', {}).get('enabled', False):
-                    total_deliverable_additional_costs += additional_costs['equipment_rentals']['amount']
+                    equipment_rentals = additional_costs['equipment_rentals']
+                    if 'items' in equipment_rentals:
+                        # New format with multiple items
+                        total_deliverable_additional_costs += sum(item.get('amount', 0) for item in equipment_rentals['items'])
+                    else:
+                        # Old format compatibility
+                        total_deliverable_additional_costs += equipment_rentals.get('amount', 0)
                 
                 # Mileage
                 if additional_costs.get('mileage', {}).get('enabled', False):
@@ -1801,7 +1828,13 @@ def generate_section_5_costs():
             
             # Equipment rentals
             if additional_costs.get('equipment_rentals', {}).get('enabled', False):
-                total_deliverable_additional_costs += additional_costs['equipment_rentals']['amount']
+                equipment_rentals = additional_costs['equipment_rentals']
+                if 'items' in equipment_rentals:
+                    # New format with multiple items
+                    total_deliverable_additional_costs += sum(item.get('amount', 0) for item in equipment_rentals['items'])
+                else:
+                    # Old format compatibility
+                    total_deliverable_additional_costs += equipment_rentals.get('amount', 0)
             
             # Mileage
             if additional_costs.get('mileage', {}).get('enabled', False):
@@ -1873,10 +1906,22 @@ def generate_section_5_costs():
                     
                     # Equipment rentals
                     if additional_costs.get('equipment_rentals', {}).get('enabled', False):
-                        amount = additional_costs['equipment_rentals']['amount']
-                        desc = additional_costs['equipment_rentals']['description']
-                        section += f"| Equipment Rentals | {desc} | ${amount:,.2f} |\n"
-                        deliverable_additional_total += amount
+                        equipment_rentals = additional_costs['equipment_rentals']
+                        if 'items' in equipment_rentals:
+                            # New format with multiple items
+                            for item in equipment_rentals['items']:
+                                amount = item.get('amount', 0)
+                                desc = item.get('description', '')
+                                if amount > 0 or desc:
+                                    section += f"| Equipment Rentals | {desc} | ${amount:,.2f} |\n"
+                                    deliverable_additional_total += amount
+                        else:
+                            # Old format compatibility
+                            amount = equipment_rentals.get('amount', 0)
+                            desc = equipment_rentals.get('description', '')
+                            if amount > 0 or desc:
+                                section += f"| Equipment Rentals | {desc} | ${amount:,.2f} |\n"
+                                deliverable_additional_total += amount
                     
                     # Mileage
                     if additional_costs.get('mileage', {}).get('enabled', False):
@@ -2222,13 +2267,26 @@ def main():
             # Initialize additional costs in deliverable if not present
             if 'additional_costs' not in st.session_state.deliverables[deliverable_key]:
                 st.session_state.deliverables[deliverable_key]['additional_costs'] = {
-                    'equipment_rentals': {'enabled': False, 'description': '', 'amount': 0.0},
+                    'equipment_rentals': {'enabled': False, 'items': []},
                     'mileage': {'enabled': False, 'miles': 0.0, 'rate': 0.625},
                     'truck_days': {'enabled': False, 'days': 0.0, 'rate': 200.00},
                     'travel': {'enabled': False, 'description': '', 'amount': 0.0}
                 }
             
+            # Migrate old format to new format if needed
             additional_costs = st.session_state.deliverables[deliverable_key]['additional_costs']
+            if 'equipment_rentals' in additional_costs and 'description' in additional_costs['equipment_rentals']:
+                # Old format - convert to new
+                old_desc = additional_costs['equipment_rentals'].get('description', '')
+                old_amount = additional_costs['equipment_rentals'].get('amount', 0.0)
+                if old_desc or old_amount > 0:
+                    additional_costs['equipment_rentals'] = {
+                        'enabled': additional_costs['equipment_rentals']['enabled'],
+                        'items': [{'description': old_desc, 'amount': old_amount}]
+                    }
+                else:
+                    additional_costs['equipment_rentals'] = {'enabled': False, 'items': []}
+            
             deliverable_additional_total = 0.0
             
             # Equipment Rentals
@@ -2240,26 +2298,57 @@ def main():
             additional_costs['equipment_rentals']['enabled'] = equipment_rental_enabled
             
             if equipment_rental_enabled:
-                col1, col2 = st.columns([2, 1])
-                with col1:
-                    rental_desc = st.text_input(
-                        "Equipment rental description",
-                        value=additional_costs['equipment_rentals']['description'],
-                        key=f"rental_desc_{deliverable_key}",
-                        placeholder="e.g., RO system rental for 2 weeks"
-                    )
-                    additional_costs['equipment_rentals']['description'] = rental_desc
+                rental_items = additional_costs['equipment_rentals']['items']
                 
-                with col2:
-                    rental_amount = st.number_input(
-                        "Rental amount ($)",
-                        value=float(additional_costs['equipment_rentals']['amount']),
-                        min_value=0.0,
-                        step=100.0,
-                        key=f"rental_amount_{deliverable_key}"
-                    )
-                    additional_costs['equipment_rentals']['amount'] = rental_amount
-                    deliverable_additional_total += rental_amount
+                # Ensure at least one item exists
+                if not rental_items:
+                    rental_items.append({'description': '', 'amount': 0.0})
+                    additional_costs['equipment_rentals']['items'] = rental_items
+                
+                equipment_total = 0.0
+                
+                for idx, item in enumerate(rental_items):
+                    col1, col2, col3 = st.columns([2, 1, 0.3])
+                    
+                    with col1:
+                        item_desc = st.text_input(
+                            f"Equipment rental item {idx + 1} description",
+                            value=item.get('description', ''),
+                            key=f"rental_desc_{deliverable_key}_{idx}",
+                            placeholder="e.g., RO system rental for 2 weeks"
+                        )
+                        item['description'] = item_desc
+                    
+                    with col2:
+                        item_amount = st.number_input(
+                            f"Amount ($)",
+                            value=float(item.get('amount', 0.0)),
+                            min_value=0.0,
+                            step=100.0,
+                            key=f"rental_amount_{deliverable_key}_{idx}"
+                        )
+                        item['amount'] = item_amount
+                        equipment_total += item_amount
+                    
+                    with col3:
+                        # Remove button (only show if more than one item)
+                        if len(rental_items) > 1:
+                            if st.button("−", key=f"remove_rental_{deliverable_key}_{idx}", help="Remove this item"):
+                                rental_items.pop(idx)
+                                st.rerun()
+                
+                # Add button for new rental item
+                col1, col2, col3 = st.columns([2, 1, 0.3])
+                with col3:
+                    if st.button("＋", key=f"add_rental_{deliverable_key}", help="Add another rental item"):
+                        rental_items.append({'description': '', 'amount': 0.0})
+                        st.rerun()
+                
+                # Show equipment rental total
+                if equipment_total > 0:
+                    st.markdown(f"*Equipment Rentals Total: ${equipment_total:,.2f}*")
+                
+                deliverable_additional_total += equipment_total
             
             # Mileage
             mileage_enabled = st.checkbox(
@@ -2532,7 +2621,13 @@ def main():
                 
                 # Equipment rentals
                 if additional_costs.get('equipment_rentals', {}).get('enabled', False):
-                    total_deliverable_additional_costs += additional_costs['equipment_rentals']['amount']
+                    equipment_rentals = additional_costs['equipment_rentals']
+                    if 'items' in equipment_rentals:
+                        # New format with multiple items
+                        total_deliverable_additional_costs += sum(item.get('amount', 0) for item in equipment_rentals['items'])
+                    else:
+                        # Old format compatibility
+                        total_deliverable_additional_costs += equipment_rentals.get('amount', 0)
                 
                 # Mileage
                 if additional_costs.get('mileage', {}).get('enabled', False):
