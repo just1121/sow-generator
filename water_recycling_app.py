@@ -2346,9 +2346,10 @@ def main():
             )
             
             # Rental item unit
-            rental_unit = st.text_input(
+            rental_unit = st.selectbox(
                 f"Unit for rental item {j + 1}",
-                value=rental_item.get('unit', ''),
+                options=["Day", "Week", "Month"],
+                index=0 if not rental_item.get('unit') or rental_item.get('unit') not in ["Day", "Week", "Month"] else ["Day", "Week", "Month"].index(rental_item.get('unit')),
                 key=unit_key
             )
             
@@ -2464,18 +2465,20 @@ def main():
         truck_total = st.session_state.expenses['truck_days'] * st.session_state.expenses['truck_rate']
         materials_total = st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup'])
         
-        # Calculate rental total
-        rental_total = 0.0
-        if st.session_state.rental_rates.get('has_rentals', False):
-            rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
-        
         # Display totals with consistent formatting
         st.text(f"Mileage Total: ${mileage_total:.2f}")
         st.text(f"Truck Total: ${truck_total:.2f}")
         st.text(f"Materials Total: ${materials_total:.2f}")
-        if rental_total > 0:
-            st.text(f"Rental Total: ${rental_total:.2f}")
+        
+        # Add Total Additional Expenses line
+        total_additional_costs = mileage_total + truck_total + materials_total
+        st.text(f"**Total Additional Expenses: ${total_additional_costs:.2f}**")
     
+    # Calculate rental total separately for ongoing costs
+    rental_total = 0.0
+    if st.session_state.rental_rates.get('has_rentals', False):
+        rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
+
     # Calculate total additional costs including rentals
     total_additional_costs = mileage_total + truck_total + materials_total + rental_total
     
