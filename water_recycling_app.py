@@ -753,8 +753,6 @@ def create_document(content, file_format):
                         rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
                     
                     additional_expenses = (
-                        st.session_state.expenses['mileage'] * st.session_state.expenses['mileage_rate'] +
-                        st.session_state.expenses['truck_days'] * st.session_state.expenses['truck_rate'] +
                         st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup'])
                     )
                     total_cost = labor_cost + additional_expenses
@@ -858,26 +856,6 @@ def create_document(content, file_format):
                     
                     # Add expense rows
                     expenses = st.session_state.expenses
-                    
-                    # Mileage row
-                    row_cells = table.add_row().cells
-                    row_cells[0].text = 'Mileage'
-                    # Format mileage as whole number if it's a whole number, otherwise show decimals
-                    mileage = expenses['mileage']
-                    mileage_str = str(int(mileage)) if mileage.is_integer() else f"{mileage:.1f}"
-                    row_cells[1].text = f"{mileage_str} miles @ ${expenses['mileage_rate']:.3f}/mile"
-                    mileage_total = expenses['mileage'] * expenses['mileage_rate']
-                    row_cells[2].text = f"${mileage_total:,.2f}"
-                    
-                    # Truck Days row
-                    row_cells = table.add_row().cells
-                    row_cells[0].text = 'Truck Days'
-                    # Format truck days as whole number if it's a whole number, otherwise show decimals
-                    truck_days = expenses['truck_days']
-                    truck_days_str = str(int(truck_days)) if truck_days.is_integer() else f"{truck_days:.1f}"
-                    row_cells[1].text = f"{truck_days_str} days @ ${expenses['truck_rate']:.2f}/day"
-                    truck_total = expenses['truck_days'] * expenses['truck_rate']
-                    row_cells[2].text = f"${truck_total:,.2f}"
                     
                     # Materials row
                     row_cells = table.add_row().cells
@@ -2638,7 +2616,7 @@ def main():
         st.session_state.additional_terms = ""
     
     # File attachments
-    st.markdown("**Attach SOW Schedules (Optional)**")
+    st.markdown("**Attach SOW Schedules**")
     uploaded_files = st.file_uploader(
         "Upload schedules to attach to the SOW:",
         accept_multiple_files=True,
@@ -2664,8 +2642,7 @@ def main():
             
             # Display generated content
             st.subheader("Generated Statement of Work")
-            with st.expander("📋 Preview Generated SOW", expanded=True):
-                st.markdown(st.session_state.sow_result['content'])
+            st.markdown(st.session_state.sow_result['content'])
             
             # Download buttons
             st.subheader("Download Documents")
@@ -2677,7 +2654,7 @@ def main():
                     docx_buffer = create_document(st.session_state.sow_result['content'], 'docx')
                     if docx_buffer:
                         st.download_button(
-                            label="📄 Download as DOCX",
+                            label="Download as DOCX",
                             data=docx_buffer.getvalue(),
                             file_name=f"SOW_{st.session_state.questions['client']['answer'].replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.docx",
                             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -2692,7 +2669,7 @@ def main():
                     entries_buffer = create_entries_record()
                     if entries_buffer:
                         st.download_button(
-                            label="📊 Download Entries Record",
+                            label="Download Entries Record",
                             data=entries_buffer.getvalue(),
                             file_name=f"Entries_Record_{st.session_state.questions['client']['answer'].replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.docx",
                             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
