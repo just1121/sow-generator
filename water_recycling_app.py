@@ -2629,6 +2629,113 @@ def main():
     st.markdown(f"**Total Additional Costs: ${total_additional_costs:,.2f}**")
     st.markdown(f"**Total Project Cost: ${(st.session_state['total_labor_cost'] + total_additional_costs):,.2f}**")
 
+    # SOW Generation Section
+    st.markdown("---")
+    st.subheader("Generate Statement of Work")
+    
+    # Show validation warnings if required fields are missing
+    validation_errors = []
+    if not st.session_state.questions['client']["answer"].strip():
+        validation_errors.append("Client name is required")
+    if not st.session_state.client_address.strip():
+        validation_errors.append("Client address is required")
+    
+    # Check if any deliverables have descriptions
+    has_deliverables = any(
+        deliverable.get('description', '').strip() 
+        for deliverable in st.session_state.deliverables.values()
+    )
+    if not has_deliverables:
+        validation_errors.append("At least one deliverable with a description is required")
+    
+    if validation_errors:
+        st.warning("Please complete the following before generating SOW:")
+        for error in validation_errors:
+            st.write(f"• {error}")
+    
+    # Generate SOW button
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🚀 Generate Statement of Work", disabled=bool(validation_errors), type="primary"):
+            start_sow_generation()
+    
+    # Display generated SOW or status
+    if 'sow_result' in st.session_state:
+        if st.session_state.sow_result['status'] == 'success':
+            st.success("✅ Statement of Work generated successfully!")
+            
+            # Display generated content
+            st.subheader("Generated Statement of Work")
+            with st.expander("📋 Preview Generated SOW", expanded=True):
+                st.markdown(st.session_state.sow_result['content'])
+            
+            # Download buttons
+            st.subheader("Download Documents")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # DOCX download
+                try:
+                    docx_buffer = create_document(st.session_state.sow_result['content'], 'docx')
+                    if docx_buffer:
+                        st.download_button(
+                            label="📄 Download as DOCX",
+                            data=docx_buffer.getvalue(),
+                            file_name=f"SOW_{st.session_state.questions['client']['answer'].replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            type="primary"
+                        )
+                except Exception as e:
+                    st.error(f"Error creating DOCX: {str(e)}")
+            
+            with col2:
+                # Entries record download
+                try:
+                    entries_buffer = create_entries_record()
+                    if entries_buffer:
+                        st.download_button(
+                            label="📊 Download Entries Record",
+                            data=entries_buffer.getvalue(),
+                            file_name=f"Entries_Record_{st.session_state.questions['client']['answer'].replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        )
+                except Exception as e:
+                    st.error(f"Error creating entries record: {str(e)}")
+        
+        elif st.session_state.sow_result['status'] == 'error':
+            st.error(f"❌ Error generating SOW: {st.session_state.sow_result['error']}")
+    
+    # Additional options
+    st.markdown("---")
+    st.subheader("Additional Options")
+    
+    # Additional Terms
+    st.markdown("**Additional Terms & Conditions (Optional)**")
+    additional_terms = st.text_area(
+        "Enter any additional terms and conditions:",
+        value=getattr(st.session_state, 'additional_terms', ''),
+        height=100,
+        help="These will be added to Section 6 of the SOW"
+    )
+    st.session_state.additional_terms = additional_terms
+    
+    # File attachments
+    st.markdown("**Attach SOW Schedules (Optional)**")
+    uploaded_files = st.file_uploader(
+        "Upload schedules to attach to the SOW:",
+        accept_multiple_files=True,
+        type=['pdf', 'docx', 'doc'],
+        help="These files will be referenced in Section 7 of the SOW"
+    )
+    if uploaded_files:
+        st.session_state.attached_schedules = uploaded_files
+        st.success(f"✅ {len(uploaded_files)} file(s) attached")
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("**Recovered Water Solutions - Statement of Work Generator**")
+    st.markdown("*For technical support, please contact your system administrator.*")
+
 # Call the main function when the script is run
 if __name__ == "__main__":
     main()
