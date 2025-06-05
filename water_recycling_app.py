@@ -2296,86 +2296,64 @@ def main():
                 
                 with col1:
                     st.text(role)
+                with col2:
+                    st.text(f"${details['rate']:.2f}/hr")
+                with col3:
                     # Create a unique key for tracking hours
                     hours_key = f"hours_{deliverable_key}_{role.replace(' ', '_')}"
                     
                     # Get existing hours from session state
                     existing_hours = st.session_state.deliverables.get(deliverable_key, {}).get('labor_costs', {}).get(role, {}).get('hours', 0)
                     
-                    with col3:
-                        hours = st.number_input(
-                            f"Hours",
-                            value=float(existing_hours),
-                            key=hours_key,
-                            min_value=0.0,
-                            step=0.25,
-                            format="%.2f"
-                        )
+                    hours = st.number_input(
+                        f"Hours",
+                        value=float(existing_hours),
+                        key=hours_key,
+                        min_value=0.0,
+                        step=0.25,
+                        format="%.2f",
+                        label_visibility="collapsed"
+                    )
                     
+                with col4:
                     # Calculate total before displaying
                     details['total'] = details['rate'] * hours
-                    
-                    with col4:
-                        st.text(f"${details['rate']:.2f}/hr")
-                        st.text(f"${details['total']:,.2f}")
-                    
-                    # Show description field immediately if hours exist in session state
-                    if hours > 0:
-                        desc_key = f"work_desc_{deliverable_key}_{role.replace(' ', '_')}"
-                        existing_desc = st.session_state.deliverables.get(deliverable_key, {}).get('labor_costs', {}).get(role, {}).get('description', '')
-                        work_description = st.text_area(
-                            "Description of Work",
-                            value=existing_desc,
-                            key=desc_key,
-                            placeholder=f"Enter description for {role} work...",
-                            label_visibility="collapsed"
-                        )
-                        
-                        # Update session state immediately
-                        if deliverable_key not in st.session_state.deliverables:
-                            st.session_state.deliverables[deliverable_key] = {'labor_costs': {}}
-                        if 'labor_costs' not in st.session_state.deliverables[deliverable_key]:
-                            st.session_state.deliverables[deliverable_key]['labor_costs'] = {}
-                        
-                        
-                        st.session_state.deliverables[deliverable_key]['labor_costs'][role] = {
-                            'hours': hours,
-                            'rate': details['rate'],
-                            'total': details['total'],
-                            'description': work_description
-                        }
+                    st.text(f"${details['total']:,.2f}")
+                    total_deliverable_cost += details['total']
                 
-                with col4:
-                    st.text(f"${details['rate']:.2f}/hr")
-                    
-                    with col4:
-                        st.text(f"${details['total']:,.2f}")
-                    
-                    # Update session state for this role
-                    if deliverable_key not in st.session_state.deliverables:
-                        st.session_state.deliverables[deliverable_key] = {'labor_costs': {}}
-                    
-                    # Only store description if hours > 0
-                    if hours > 0:
-                        st.session_state.deliverables[deliverable_key]['labor_costs'][role] = {
-                            'hours': hours,
-                            'rate': details['rate'],
-                            'total': details['total'],
-                            'description': work_description
-                        }
-                    else:
-                        st.session_state.deliverables[deliverable_key]['labor_costs'][role] = {
-                            'hours': hours,
-                            'rate': details['rate'],
-                            'total': details['total']
-                        }
+                # Show description field if hours > 0
+                if hours > 0:
+                    desc_key = f"work_desc_{deliverable_key}_{role.replace(' ', '_')}"
+                    existing_desc = st.session_state.deliverables.get(deliverable_key, {}).get('labor_costs', {}).get(role, {}).get('description', '')
+                    work_description = st.text_area(
+                        "Description of Work",
+                        value=existing_desc,
+                        key=desc_key,
+                        placeholder=f"Enter description for {role} work...",
+                        label_visibility="collapsed"
+                    )
+                else:
+                    work_description = ""
                 
-                # Update the global total labor cost in session state
-            st.session_state['total_labor_cost'] += total_deliverable_cost
-
-                # Show individual total for the deliverable
+                # Update session state for this role
+                if deliverable_key not in st.session_state.deliverables:
+                    st.session_state.deliverables[deliverable_key] = {'labor_costs': {}}
+                if 'labor_costs' not in st.session_state.deliverables[deliverable_key]:
+                    st.session_state.deliverables[deliverable_key]['labor_costs'] = {}
+                
+                st.session_state.deliverables[deliverable_key]['labor_costs'][role] = {
+                    'hours': hours,
+                    'rate': details['rate'],
+                    'total': details['total'],
+                    'description': work_description
+                }
+            
+            # Show individual total for the deliverable
             st.markdown(f"**Total Cost for Deliverable {i + 1}: ${total_deliverable_cost:,.2f}**")
 
+        # TEST: This should be visible if our changes are working
+        st.success("✅ TEST: Code changes are working! Additional Costs section should appear below.")
+        
         # Additional Costs section for this deliverable
         with st.expander(f"Additional Costs - Deliverable {i + 1}"):
             # Initialize additional costs in deliverable if not present
@@ -2527,7 +2505,7 @@ def main():
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-            # Add separator between deliverables
+        # Add separator between deliverables
         if i < num_deliverables - 1:
             st.markdown('<hr class="custom-divider">', unsafe_allow_html=True)
 
