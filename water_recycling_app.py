@@ -584,7 +584,7 @@ def create_document(content, file_format):
                     
                     if completion_date:
                         formatted_completion_date = completion_date.strftime('%B %d, %Y')
-                        intro_text = f"Contractor will provide all Deliverables to {client_name} by Target completion date {formatted_completion_date}. Specific deliverable timelines are described below."
+                        intro_text = f"Contractor will provide all Deliverables to {client_name} by target completion date {formatted_completion_date}. Specific deliverable timelines are described below."
                     else:
                         intro_text = f"Contractor will provide all Deliverables to {client_name}. Specific deliverable timelines are described below."
                     
@@ -1208,7 +1208,7 @@ def generate_sow():  # no longer async
                 return
 
             deliverables_text = "\n\n**2. Deliverables**\n\n"
-            deliverables_text += f"Contractor will provide all Deliverables to {client_name} by Target completion date {formatted_completion_date}. Specific deliverable timelines are described below.\n\n"
+            deliverables_text += f"Contractor will provide all Deliverables to {client_name} by target completion date {formatted_completion_date}. Specific deliverable timelines are described below.\n\n"
 
             for deliverable_index, (deliverable_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                 if deliverable.get('description'):
@@ -1319,6 +1319,9 @@ Third Paragraph:
                 services_content = sections[2] if len(sections) > 2 else ""
                 services_content = re.sub(r'.*?Description\s+of\s+Services\s*\n+', '', services_content, flags=re.IGNORECASE | re.MULTILINE)
                 services_content = re.sub(r'Technical\s+Approach\s*:', '\nTechnical Approach:', services_content)
+                
+                # Remove any legal preamble text that the AI model might have included
+                services_content = re.sub(r'This statement of work.*?Agreement.*?\.\s*', '', services_content, flags=re.IGNORECASE | re.DOTALL)
                 
                 # Generate deliverables section from user inputs instead of model
                 deliverables_content = deliverables_text
