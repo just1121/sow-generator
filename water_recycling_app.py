@@ -2270,7 +2270,7 @@ def main():
                     'equipment_rentals': {'enabled': False, 'items': []},
                     'mileage': {'enabled': False, 'miles': 0.0, 'rate': 0.625},
                     'truck_days': {'enabled': False, 'days': 0.0, 'rate': 200.00},
-                    'travel': {'enabled': False, 'description': '', 'amount': 0.0}
+                    'travel': {'enabled': False, 'items': []}
                 }
             
             # Migrate old format to new format if needed
@@ -2286,6 +2286,19 @@ def main():
                     }
                 else:
                     additional_costs['equipment_rentals'] = {'enabled': False, 'items': []}
+            
+            # Migrate travel from old format to new format if needed
+            if 'travel' in additional_costs and 'description' in additional_costs['travel']:
+                # Old format - convert to new
+                old_desc = additional_costs['travel'].get('description', '')
+                old_amount = additional_costs['travel'].get('amount', 0.0)
+                if old_desc or old_amount > 0:
+                    additional_costs['travel'] = {
+                        'enabled': additional_costs['travel']['enabled'],
+                        'items': [{'description': old_desc, 'amount': old_amount}]
+                    }
+                else:
+                    additional_costs['travel'] = {'enabled': False, 'items': []}
             
             deliverable_additional_total = 0.0
             
@@ -2430,26 +2443,57 @@ def main():
             additional_costs['travel']['enabled'] = travel_enabled
             
             if travel_enabled:
-                col1, col2 = st.columns([2, 1])
-                with col1:
-                    travel_desc = st.text_input(
-                        "Travel description",
-                        value=additional_costs['travel']['description'],
-                        key=f"travel_desc_{deliverable_key}",
-                        placeholder="e.g., flights, hotel, meals"
-                    )
-                    additional_costs['travel']['description'] = travel_desc
+                travel_items = additional_costs['travel']['items']
                 
-                with col2:
-                    travel_amount = st.number_input(
-                        "Travel amount ($)",
-                        value=float(additional_costs['travel']['amount']),
-                        min_value=0.0,
-                        step=50.0,
-                        key=f"travel_amount_{deliverable_key}"
-                    )
-                    additional_costs['travel']['amount'] = travel_amount
-                    deliverable_additional_total += travel_amount
+                # Ensure at least one item exists
+                if not travel_items:
+                    travel_items.append({'description': '', 'amount': 0.0})
+                    additional_costs['travel']['items'] = travel_items
+                
+                travel_total = 0.0
+                
+                for idx, item in enumerate(travel_items):
+                    col1, col2, col3 = st.columns([2, 1, 0.3])
+                    
+                    with col1:
+                        item_desc = st.text_input(
+                            f"Travel item {idx + 1} description",
+                            value=item.get('description', ''),
+                            key=f"travel_desc_{deliverable_key}_{idx}",
+                            placeholder="e.g., flights, hotel, meals"
+                        )
+                        item['description'] = item_desc
+                    
+                    with col2:
+                        item_amount = st.number_input(
+                            f"Amount ($)",
+                            value=float(item.get('amount', 0.0)),
+                            min_value=0.0,
+                            step=50.0,
+                            key=f"travel_amount_{deliverable_key}_{idx}"
+                        )
+                        item['amount'] = item_amount
+                        travel_total += item_amount
+                    
+                    with col3:
+                        # Remove button (only show if more than one item)
+                        if len(travel_items) > 1:
+                            if st.button("−", key=f"remove_travel_{deliverable_key}_{idx}", help="Remove this item"):
+                                travel_items.pop(idx)
+                                st.rerun()
+                
+                # Add button for new travel item
+                col1, col2, col3 = st.columns([2, 1, 0.3])
+                with col3:
+                    if st.button("＋", key=f"add_travel_{deliverable_key}", help="Add another travel item"):
+                        travel_items.append({'description': '', 'amount': 0.0})
+                        st.rerun()
+                
+                # Show travel total
+                if travel_total > 0:
+                    st.markdown(f"*Travel Total: ${travel_total:,.2f}*")
+                
+                deliverable_additional_total += travel_total
             
             # Show deliverable additional costs total
             if deliverable_additional_total > 0:
@@ -2540,7 +2584,7 @@ def main():
 
         # Additional services section (after labor categories)
         additional = st.text_area(
-            f"Additional services for this deliverable:",
+            f"Additional notes, information or services for this deliverable:",
             help="Any additional services or opportunities\n" +
                  "Example: 'Offering samples to potential customers'",
             value=st.session_state.deliverables[deliverable_key].get('additional_services', ''),
@@ -2682,7 +2726,6 @@ def main():
     # Display all totals
     st.markdown("---")
     st.markdown(f"**Total Labor Costs: ${st.session_state['total_labor_cost']:,.2f}**")
-    st.markdown(f"**Total Deliverable-Specific Additional Costs: ${total_deliverable_additional_costs:,.2f}**")
     st.markdown(f"**Total Global Additional Costs: ${total_global_additional_costs:,.2f}**")
     st.markdown(f"**Total Additional Costs: ${total_additional_costs:,.2f}**")
     st.markdown(f"**Total Project Cost: ${(st.session_state['total_labor_cost'] + total_additional_costs):,.2f}**")
@@ -2733,12 +2776,29 @@ def main():
     # Display generated SOW or status
     if 'sow_result' in st.session_state:
         if st.session_state.sow_result['status'] == 'success':
-            # Display generated content in green background
+            # Display generated content with enhanced visual styling
             st.markdown("""
-            <div style="background-color: #d4edda; padding: 20px; border-radius: 10px; border: 1px solid #c3e6cb; margin: 20px 0;">
+            <div style="
+                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                padding: 30px; 
+                border-radius: 15px; 
+                border: 2px solid #007BFF;
+                margin: 25px 0;
+                box-shadow: 0 8px 25px rgba(0,123,255,0.15);
+                position: relative;
+            ">
+            <div style="
+                position: absolute;
+                top: -1px;
+                left: -1px;
+                right: -1px;
+                height: 5px;
+                background: linear-gradient(90deg, #007BFF, #0056b3, #007BFF);
+                border-radius: 15px 15px 0 0;
+            "></div>
             """, unsafe_allow_html=True)
             
-            st.subheader("Generated Statement of Work")
+            st.markdown("### 📄 Generated Statement of Work")
             st.markdown(st.session_state.sow_result['content'])
             
             st.markdown("</div>", unsafe_allow_html=True)
