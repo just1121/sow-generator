@@ -469,6 +469,7 @@ def create_document(content, file_format):
                     add_markdown_runs(p_narrative, narrative, apply_base_body_style)
                     
                     # Add deliverable labor cost tables and their additional costs
+                    deliverable_totals = []  # Track total costs for each deliverable
                     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                         if isinstance(deliverable.get('labor_costs'), dict):
                             p_del_header = doc.add_paragraph()
@@ -504,17 +505,26 @@ def create_document(content, file_format):
                                 p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
                                 p.add_run("Total Labor Cost for Deliverable: ")
                                 p.add_run(f"${total_deliverable_cost:,.2f}").bold = True
+                            else:
+                                total_deliverable_cost = 0.0
+                            
+                            # Initialize additional costs total
+                            deliverable_additional_total = 0.0
                             
                             # Add deliverable-specific additional costs if any
                             if 'additional_costs' in deliverable:
                                 additional_costs = deliverable['additional_costs']
-                                deliverable_additional_total = 0.0
+                                
+                                # Debug: Check what additional costs are enabled
+                                print(f"DEBUG: Deliverable {i} additional costs: {additional_costs}")
                                 
                                 # Check if any additional costs are enabled
                                 if (additional_costs.get('equipment_rentals', {}).get('enabled', False) or
                                     additional_costs.get('mileage', {}).get('enabled', False) or
                                     additional_costs.get('truck_days', {}).get('enabled', False) or
                                     additional_costs.get('travel', {}).get('enabled', False)):
+                                    
+                                    print(f"DEBUG: Creating additional costs table for deliverable {i}")
                                     
                                     p_add_header = doc.add_paragraph()
                                     run_add_header = p_add_header.add_run(f"Additional Costs for Deliverable {i}")
@@ -621,8 +631,48 @@ def create_document(content, file_format):
                                         p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
                                         p.add_run(f"Total Additional Costs for Deliverable {i}: ")
                                         p.add_run(f"${deliverable_additional_total:,.2f}").bold = True
+                            
+                            # Add total costs for this deliverable (labor + additional)
+                            total_deliverable_all_costs = total_deliverable_cost + deliverable_additional_total
+                            deliverable_totals.append({
+                                'number': i,
+                                'description': deliverable.get('description', ''),
+                                'labor_cost': total_deliverable_cost,
+                                'additional_cost': deliverable_additional_total,
+                                'total_cost': total_deliverable_all_costs
+                            })
+                            
+                            doc.add_paragraph()  # Add space before total
+                            p = doc.add_paragraph()
+                            p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                            p.add_run(f"Total Costs for Deliverable {i}: ")
+                            p.add_run(f"${total_deliverable_all_costs:,.2f}").bold = True
                     
-                                        # Add project-wide additional costs if any
+                    # Add Deliverable Summary table
+                    if deliverable_totals:
+                        p_summary_header = doc.add_paragraph()
+                        run_summary_header = p_summary_header.add_run("Deliverable Summary")
+                        apply_base_heading_style(run_summary_header)
+                        run_summary_header.bold = True
+                        
+                        summary_table = doc.add_table(rows=1, cols=4)
+                        format_table(summary_table)
+                        summary_header_cells = summary_table.rows[0].cells
+                        summary_header_cells[0].paragraphs[0].add_run('Deliverable').bold = True
+                        summary_header_cells[1].paragraphs[0].add_run('Labor Costs').bold = True
+                        summary_header_cells[2].paragraphs[0].add_run('Additional Costs').bold = True
+                        summary_header_cells[3].paragraphs[0].add_run('Total Costs').bold = True
+                        
+                        for deliverable_data in deliverable_totals:
+                            row_cells = summary_table.add_row().cells
+                            row_cells[0].text = f"Deliverable {deliverable_data['number']}"
+                            row_cells[1].text = f"${deliverable_data['labor_cost']:,.2f}"
+                            row_cells[2].text = f"${deliverable_data['additional_cost']:,.2f}"
+                            row_cells[3].text = f"${deliverable_data['total_cost']:,.2f}"
+                        
+                        doc.add_paragraph()  # Add spacing after summary table
+                    
+                    # Add project-wide additional costs if any
                     if materials_total > 0:
                         p_project_header = doc.add_paragraph()
                         run_project_header = p_project_header.add_run("Project-Wide Additional Costs")
@@ -1393,6 +1443,11 @@ def generate_sow():  # no longer async
             deliverables_text = "\n\n**2. Deliverables**\n\n"
             deliverables_text += f"Contractor will provide all Deliverables to {client_name} by target completion date {formatted_completion_date}. Specific deliverable timelines are described below.\n\n"
 
+            # Debug: Print deliverable data
+            print(f"DEBUG: Number of deliverables: {len(st.session_state.deliverables)}")
+            for key, deliverable in st.session_state.deliverables.items():
+                print(f"DEBUG: {key}: description='{deliverable.get('description', '')}', target_date={deliverable.get('target_date')}")
+            
             for deliverable_index, (deliverable_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                 if deliverable.get('description'):
                     # Start with deliverable description and target date
@@ -1415,6 +1470,9 @@ def generate_sow():  # no longer async
                                     deliverable_text += f"- Milestone {j}: {milestone.get('description')} (No date provided)\n"
                     
                     deliverables_text += deliverable_text + "\n"
+                    print(f"DEBUG: Added deliverable {deliverable_index}: {deliverable_text.strip()}")
+            
+            print(f"DEBUG: Final deliverables_text:\n{deliverables_text}")
 
             prompt = f"""
             As a specialist for Recovered Water Solutions, please generate a Statement of Work (SOW).
@@ -1944,10 +2002,12 @@ def generate_section_5_costs():
                           if isinstance(details, dict))
             section += f"\n**Total Labor Cost for Deliverable: ${del_total:,.2f}**\n\n"
             
+            # Initialize additional costs total
+            deliverable_additional_total = 0.0
+            
             # Add deliverable-specific additional costs if any
             if 'additional_costs' in deliverable:
                 additional_costs = deliverable['additional_costs']
-                deliverable_additional_total = 0.0
                 has_additional_costs = False
                 
                 # Check if any additional costs are enabled
@@ -2028,6 +2088,14 @@ def generate_section_5_costs():
                                 deliverable_additional_total += amount
                     
                     section += f"\n**Total Additional Costs for Deliverable {i}: ${deliverable_additional_total:,.2f}**\n\n"
+                
+                # Add total costs for this deliverable
+                total_deliverable_all_costs = del_total + deliverable_additional_total
+                section += f"**Total Costs for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
+            else:
+                # No additional costs, but still show total costs
+                total_deliverable_all_costs = del_total
+                section += f"**Total Costs for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
     
     # Add project-wide additional costs if any
     if materials_total > 0:
@@ -2436,8 +2504,7 @@ def main():
             if equipment_rental_enabled:
                 rental_items = additional_costs['equipment_rentals']['items']
                 
-                # Debug information (remove this after testing)
-                st.write(f"DEBUG: rental_items structure: {rental_items}")
+
                 
                 # Ensure at least one item exists
                 if not rental_items:
@@ -2733,7 +2800,7 @@ def main():
                 }
             
             # Show individual total for the deliverable
-            st.markdown(f"**Total Cost for Deliverable {i + 1}: ${total_deliverable_cost:,.2f}**")
+            st.markdown(f"**Total Labor Cost for Deliverable {i + 1}: ${total_deliverable_cost:,.2f}**")
 
         # Additional services section (after labor categories)
         additional = st.text_area(
