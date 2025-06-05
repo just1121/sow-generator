@@ -1619,7 +1619,7 @@ def create_entries_record():
         if st.session_state.rental_rates.get('has_rentals', False):
             rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
         
-        total_additional_costs = mileage_total + truck_total + materials_total + rental_total
+        total_additional_costs = mileage_total + truck_total + materials_total
 
         # Additional Costs section
         doc.add_heading(f'Additional Costs: ${total_additional_costs:,.2f}').bold = True
@@ -2480,7 +2480,7 @@ def main():
         rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
 
     # Calculate total additional costs including rentals
-    total_additional_costs = mileage_total + truck_total + materials_total + rental_total
+    total_additional_costs = mileage_total + truck_total + materials_total
     
     # Define labor roles
     labor_roles = [
@@ -2514,6 +2514,20 @@ def main():
     st.markdown(f"**Total Additional Costs: ${total_additional_costs:,.2f}**")
     st.markdown(f"**Total Labor Costs: ${st.session_state['total_labor_cost']:,.2f}**")  # Use the same value here
     st.markdown(f"**Total Project Cost: ${(total_additional_costs + st.session_state['total_labor_cost']):,.2f}**")
+
+    # Display ongoing rentals separately if they exist
+    if st.session_state.rental_rates.get('has_rentals', False) and rental_total > 0:
+        # Group rentals by unit to show ongoing costs
+        rental_by_unit = {}
+        for item in st.session_state.rental_rates['items']:
+            if item['description'] and item['qty'] > 0 and item['rate'] > 0:
+                unit = item['unit']
+                if unit not in rental_by_unit:
+                    rental_by_unit[unit] = 0
+                rental_by_unit[unit] += item['qty'] * item['rate']
+        
+        for unit, total in rental_by_unit.items():
+            st.markdown(f"**Ongoing Rentals: ${total:,.2f} per {unit}**")
 
     # Title and Risk of Loss Conditional
     st.markdown("---")
