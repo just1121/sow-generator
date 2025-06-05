@@ -419,7 +419,13 @@ def create_document(content, file_format):
                                 equipment_rentals = additional_costs['equipment_rentals']
                                 if 'items' in equipment_rentals:
                                     # New format with multiple items
-                                    total_deliverable_additional_costs += sum(item.get('amount', 0) for item in equipment_rentals['items'])
+                                    for item in equipment_rentals['items']:
+                                        if 'weeks' in item and 'rate_per_week' in item:
+                                            # New weekly structure
+                                            total_deliverable_additional_costs += item.get('weeks', 1) * item.get('rate_per_week', 0)
+                                        else:
+                                            # Old amount structure
+                                            total_deliverable_additional_costs += item.get('amount', 0)
                                 else:
                                     # Old format compatibility
                                     total_deliverable_additional_costs += equipment_rentals.get('amount', 0)
@@ -528,14 +534,29 @@ def create_document(content, file_format):
                                         if 'items' in equipment_rentals:
                                             # New format with multiple items
                                             for item in equipment_rentals['items']:
-                                                amount = item.get('amount', 0)
-                                                desc = item.get('description', '')
-                                                if amount > 0 or desc:
-                                                    row_cells = add_table.add_row().cells
-                                                    row_cells[0].text = 'Equipment Rentals'
-                                                    row_cells[1].text = desc
-                                                    row_cells[2].text = f"${amount:,.2f}"
-                                                    deliverable_additional_total += amount
+                                                if 'weeks' in item and 'rate_per_week' in item:
+                                                    # New weekly structure
+                                                    weeks = item.get('weeks', 1)
+                                                    rate_per_week = item.get('rate_per_week', 0)
+                                                    amount = weeks * rate_per_week
+                                                    desc = item.get('description', '')
+                                                    if amount > 0 or desc:
+                                                        row_cells = add_table.add_row().cells
+                                                        row_cells[0].text = 'Equipment Rentals'
+                                                        week_text = f"week" if weeks == 1 else "weeks"
+                                                        row_cells[1].text = f"{desc} - {weeks} {week_text} @ ${rate_per_week:,.2f}/week"
+                                                        row_cells[2].text = f"${amount:,.2f}"
+                                                        deliverable_additional_total += amount
+                                                else:
+                                                    # Old amount structure
+                                                    amount = item.get('amount', 0)
+                                                    desc = item.get('description', '')
+                                                    if amount > 0 or desc:
+                                                        row_cells = add_table.add_row().cells
+                                                        row_cells[0].text = 'Equipment Rentals'
+                                                        row_cells[1].text = desc
+                                                        row_cells[2].text = f"${amount:,.2f}"
+                                                        deliverable_additional_total += amount
                                         else:
                                             # Old format compatibility
                                             amount = equipment_rentals.get('amount', 0)
@@ -601,22 +622,22 @@ def create_document(content, file_format):
                                         p.add_run(f"Total Additional Costs for Deliverable {i}: ")
                                         p.add_run(f"${deliverable_additional_total:,.2f}").bold = True
                     
-                    # Add global additional costs if any
+                                        # Add project-wide additional costs if any
                     if materials_total > 0:
-                        p_global_header = doc.add_paragraph()
-                        run_global_header = p_global_header.add_run("Global Additional Costs")
-                        apply_base_heading_style(run_global_header)
-                        run_global_header.bold = True
+                        p_project_header = doc.add_paragraph()
+                        run_project_header = p_project_header.add_run("Project-Wide Additional Costs")
+                        apply_base_heading_style(run_project_header)
+                        run_project_header.bold = True
                         
-                        global_table = doc.add_table(rows=1, cols=3)
-                        format_table(global_table)
-                        global_header_cells = global_table.rows[0].cells
-                        global_header_cells[0].paragraphs[0].add_run('Cost Type').bold = True
-                        global_header_cells[1].paragraphs[0].add_run('Details').bold = True
-                        global_header_cells[2].paragraphs[0].add_run('Amount').bold = True
-                        
+                        project_table = doc.add_table(rows=1, cols=3)
+                        format_table(project_table)
+                        project_header_cells = project_table.rows[0].cells
+                        project_header_cells[0].paragraphs[0].add_run('Cost Type').bold = True
+                        project_header_cells[1].paragraphs[0].add_run('Details').bold = True
+                                                project_header_cells[2].paragraphs[0].add_run('Amount').bold = True
+                    
                         # Materials row
-                        row_cells = global_table.add_row().cells
+                        row_cells = project_table.add_row().cells
                         row_cells[0].text = 'Materials'
                         row_cells[1].text = f"Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup"
                         row_cells[2].text = f"${materials_total:,.2f}"
@@ -624,7 +645,7 @@ def create_document(content, file_format):
                         doc.add_paragraph()  # Add space before total
                         p = doc.add_paragraph()
                         p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                        p.add_run("Total Global Additional Costs: ")
+                        p.add_run("Total Project-Wide Additional Costs: ")
                         p.add_run(f"${materials_total:,.2f}").bold = True
                     
                     # Add Project Totals table
@@ -644,19 +665,10 @@ def create_document(content, file_format):
                     row_cells[0].text = 'Total Labor Costs'
                     row_cells[1].text = f'${labor_cost:,.2f}'
                     
-                    if total_deliverable_additional_costs > 0:
+                    if total_additional_costs > 0:
                         row_cells = table.add_row().cells
-                        row_cells[0].text = 'Total Deliverable-Specific Additional Costs'
-                        row_cells[1].text = f'${total_deliverable_additional_costs:,.2f}'
-                    
-                    if materials_total > 0:
-                        row_cells = table.add_row().cells
-                        row_cells[0].text = 'Total Global Additional Costs'
-                        row_cells[1].text = f'${materials_total:,.2f}'
-                    
-                    row_cells = table.add_row().cells
-                    row_cells[0].text = 'Total Additional Costs'
-                    row_cells[1].text = f'${total_additional_costs:,.2f}'
+                        row_cells[0].text = 'Total Additional Costs'
+                        row_cells[1].text = f'${total_additional_costs:,.2f}'
                     
                     row_cells = table.add_row().cells
                     p1 = row_cells[0].paragraphs[0]
@@ -1674,7 +1686,13 @@ def create_entries_record():
                     equipment_rentals = additional_costs['equipment_rentals']
                     if 'items' in equipment_rentals:
                         # New format with multiple items
-                        total_deliverable_additional_costs += sum(item.get('amount', 0) for item in equipment_rentals['items'])
+                        for item in equipment_rentals['items']:
+                            if 'weeks' in item and 'rate_per_week' in item:
+                                # New weekly structure
+                                total_deliverable_additional_costs += item.get('weeks', 1) * item.get('rate_per_week', 0)
+                            else:
+                                # Old amount structure
+                                total_deliverable_additional_costs += item.get('amount', 0)
                     else:
                         # Old format compatibility
                         total_deliverable_additional_costs += equipment_rentals.get('amount', 0)
@@ -1858,7 +1876,13 @@ def generate_section_5_costs():
                 equipment_rentals = additional_costs['equipment_rentals']
                 if 'items' in equipment_rentals:
                     # New format with multiple items
-                    total_deliverable_additional_costs += sum(item.get('amount', 0) for item in equipment_rentals['items'])
+                    for item in equipment_rentals['items']:
+                        if 'weeks' in item and 'rate_per_week' in item:
+                            # New weekly structure
+                            total_deliverable_additional_costs += item.get('weeks', 1) * item.get('rate_per_week', 0)
+                        else:
+                            # Old amount structure
+                            total_deliverable_additional_costs += item.get('amount', 0)
                 else:
                     # Old format compatibility
                     total_deliverable_additional_costs += equipment_rentals.get('amount', 0)
@@ -1943,11 +1967,23 @@ def generate_section_5_costs():
                         if 'items' in equipment_rentals:
                             # New format with multiple items
                             for item in equipment_rentals['items']:
-                                amount = item.get('amount', 0)
-                                desc = item.get('description', '')
-                                if amount > 0 or desc:
-                                    section += f"| Equipment Rentals | {desc} | ${amount:,.2f} |\n"
-                                    deliverable_additional_total += amount
+                                if 'weeks' in item and 'rate_per_week' in item:
+                                    # New weekly structure
+                                    weeks = item.get('weeks', 1)
+                                    rate_per_week = item.get('rate_per_week', 0)
+                                    amount = weeks * rate_per_week
+                                    desc = item.get('description', '')
+                                    if amount > 0 or desc:
+                                        week_text = "week" if weeks == 1 else "weeks"
+                                        section += f"| Equipment Rentals | {desc} - {weeks} {week_text} @ ${rate_per_week:,.2f}/week | ${amount:,.2f} |\n"
+                                        deliverable_additional_total += amount
+                                else:
+                                    # Old amount structure
+                                    amount = item.get('amount', 0)
+                                    desc = item.get('description', '')
+                                    if amount > 0 or desc:
+                                        section += f"| Equipment Rentals | {desc} | ${amount:,.2f} |\n"
+                                        deliverable_additional_total += amount
                         else:
                             # Old format compatibility
                             amount = equipment_rentals.get('amount', 0)
@@ -1993,24 +2029,21 @@ def generate_section_5_costs():
                     
                     section += f"\n**Total Additional Costs for Deliverable {i}: ${deliverable_additional_total:,.2f}**\n\n"
     
-    # Add global additional costs if any
+    # Add project-wide additional costs if any
     if materials_total > 0:
-        section += "\n**Global Additional Costs**\n\n"
+        section += "\n**Project-Wide Additional Costs**\n\n"
         section += "| Cost Type | Details | Amount |\n"
         section += "|-----------|---------|--------|\n"
         section += f"| Materials | Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup | ${materials_total:,.2f} |\n"
-        section += f"\n**Total Global Additional Costs: ${materials_total:,.2f}**\n\n"
+        section += f"\n**Total Project-Wide Additional Costs: ${materials_total:,.2f}**\n\n"
     
     # Add totals section
     section += "\n**Project Totals**\n\n"
     section += "| Category | Amount |\n"
     section += "|----------|--------|\n"
     section += f"| Total Labor Costs | ${total_labor_cost:,.2f} |\n"
-    if total_deliverable_additional_costs > 0:
-        section += f"| Total Deliverable-Specific Additional Costs | ${total_deliverable_additional_costs:,.2f} |\n"
     if materials_total > 0:
-        section += f"| Total Global Additional Costs | ${materials_total:,.2f} |\n"
-    section += f"| Total Additional Costs | ${total_additional_costs:,.2f} |\n"
+        section += f"| Total Additional Costs | ${total_additional_costs:,.2f} |\n"
     section += f"| **Total Project Cost** | **${total_project_cost:,.2f}** |\n"
     
     return section
@@ -2327,10 +2360,19 @@ def main():
                 if old_desc or old_amount > 0:
                     additional_costs['equipment_rentals'] = {
                         'enabled': additional_costs['equipment_rentals']['enabled'],
-                        'items': [{'description': old_desc, 'amount': old_amount}]
+                        'items': [{'description': old_desc, 'weeks': 1, 'rate_per_week': old_amount}]
                     }
                 else:
                     additional_costs['equipment_rentals'] = {'enabled': False, 'items': []}
+            
+            # Migrate equipment rental items that don't have weeks/rate structure
+            if 'equipment_rentals' in additional_costs and 'items' in additional_costs['equipment_rentals']:
+                for item in additional_costs['equipment_rentals']['items']:
+                    # Convert old amount-only items to weeks/rate structure
+                    if 'amount' in item and 'weeks' not in item:
+                        old_amount = item.pop('amount', 0.0)
+                        item['weeks'] = 1
+                        item['rate_per_week'] = old_amount
             
             # Migrate travel from old format to new format if needed
             if 'travel' in additional_costs and 'description' in additional_costs['travel']:
@@ -2360,35 +2402,49 @@ def main():
                 
                 # Ensure at least one item exists
                 if not rental_items:
-                    rental_items.append({'description': '', 'amount': 0.0})
+                    rental_items.append({'description': '', 'weeks': 1, 'rate_per_week': 0.0})
                     additional_costs['equipment_rentals']['items'] = rental_items
                 
                 equipment_total = 0.0
                 
                 for idx, item in enumerate(rental_items):
-                    col1, col2, col3 = st.columns([2, 1, 0.3])
+                    col1, col2, col3, col4, col5 = st.columns([2, 0.7, 1, 0.7, 0.3])
                     
                     with col1:
                         item_desc = st.text_input(
                             f"Equipment rental item {idx + 1} description",
                             value=item.get('description', ''),
                             key=f"rental_desc_{deliverable_key}_{idx}",
-                            placeholder="e.g., RO system rental for 2 weeks"
+                            placeholder="e.g., RO system rental"
                         )
                         item['description'] = item_desc
                     
                     with col2:
-                        item_amount = st.number_input(
-                            f"Amount ($)",
-                            value=float(item.get('amount', 0.0)),
-                            min_value=0.0,
-                            step=100.0,
-                            key=f"rental_amount_{deliverable_key}_{idx}"
+                        weeks = st.selectbox(
+                            f"Weeks",
+                            options=list(range(1, 53)),  # 1-52 weeks
+                            index=item.get('weeks', 1) - 1,
+                            key=f"rental_weeks_{deliverable_key}_{idx}"
                         )
-                        item['amount'] = item_amount
-                        equipment_total += item_amount
+                        item['weeks'] = weeks
                     
                     with col3:
+                        rate_per_week = st.number_input(
+                            f"Rate/week ($)",
+                            value=float(item.get('rate_per_week', 0.0)),
+                            min_value=0.0,
+                            step=50.0,
+                            key=f"rental_rate_{deliverable_key}_{idx}"
+                        )
+                        item['rate_per_week'] = rate_per_week
+                        item_total = weeks * rate_per_week
+                        equipment_total += item_total
+                    
+                    with col4:
+                        # Show calculated total
+                        st.text(f"Total: ${item_total:,.2f}")
+                    
+                    with col5:
                         # Remove button (only show if more than one item)
                         if len(rental_items) > 1:
                             if st.button("−", key=f"remove_rental_{deliverable_key}_{idx}", help="Remove this item"):
@@ -2396,10 +2452,10 @@ def main():
                                 st.rerun()
                 
                 # Add button for new rental item
-                col1, col2, col3 = st.columns([2, 1, 0.3])
-                with col3:
+                col1, col2, col3, col4, col5 = st.columns([2, 0.7, 1, 0.7, 0.3])
+                with col5:
                     if st.button("＋", key=f"add_rental_{deliverable_key}", help="Add another rental item"):
-                        rental_items.append({'description': '', 'amount': 0.0})
+                        rental_items.append({'description': '', 'weeks': 1, 'rate_per_week': 0.0})
                         st.rerun()
                 
                 # Show equipment rental total
@@ -2713,7 +2769,13 @@ def main():
                     equipment_rentals = additional_costs['equipment_rentals']
                     if 'items' in equipment_rentals:
                         # New format with multiple items
-                        total_deliverable_additional_costs += sum(item.get('amount', 0) for item in equipment_rentals['items'])
+                        for item in equipment_rentals['items']:
+                            if 'weeks' in item and 'rate_per_week' in item:
+                                # New weekly structure
+                                total_deliverable_additional_costs += item.get('weeks', 1) * item.get('rate_per_week', 0)
+                            else:
+                                # Old amount structure
+                                total_deliverable_additional_costs += item.get('amount', 0)
                     else:
                         # Old format compatibility
                         total_deliverable_additional_costs += equipment_rentals.get('amount', 0)
@@ -2738,8 +2800,8 @@ def main():
                         # Old format compatibility
                         total_deliverable_additional_costs += travel_data.get('amount', 0)
     
-    # Global additional costs (materials only now)
-    st.markdown("**Global Additional Costs**")
+    # Project-wide additional costs (materials only)
+    st.markdown("**Project-Wide Additional Costs**")
     st.markdown("*These are project-wide costs not specific to any deliverable*")
     
     # Initialize expenses with correct rates and types
@@ -2767,17 +2829,16 @@ def main():
         # Display totals with consistent formatting
         st.text(f"Materials Total: ${materials_total:.2f}")
         
-        # Total global additional costs
-        total_global_additional_costs = materials_total
-        st.text(f"**Total Global Additional Costs: ${total_global_additional_costs:.2f}**")
+        # Total project-wide additional costs
+        total_project_wide_additional_costs = materials_total
+        st.text(f"**Total Project-Wide Additional Costs: ${total_project_wide_additional_costs:.2f}**")
     
     # Calculate grand totals
-    total_additional_costs = total_deliverable_additional_costs + total_global_additional_costs
+    total_additional_costs = total_deliverable_additional_costs + total_project_wide_additional_costs
     
     # Display all totals
     st.markdown("---")
     st.markdown(f"**Total Labor Costs: ${st.session_state['total_labor_cost']:,.2f}**")
-    st.markdown(f"**Total Global Additional Costs: ${total_global_additional_costs:,.2f}**")
     st.markdown(f"**Total Additional Costs: ${total_additional_costs:,.2f}**")
     st.markdown(f"**Total Project Cost: ${(st.session_state['total_labor_cost'] + total_additional_costs):,.2f}**")
 
