@@ -2003,9 +2003,6 @@ def main():
         unsafe_allow_html=True
     )
 
-    # Remove the bucket access check message
-    test_bucket_access()
-
     initialize_session_state()
     load_environment()
 
