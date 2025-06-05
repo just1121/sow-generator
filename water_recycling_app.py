@@ -260,6 +260,15 @@ def initialize_session_state():
                 'truck_days': 0,
                 'truck_rate': 200.00        # Correct rate
             }
+        if 'rental_rates' not in st.session_state:  # Added rental rates
+            st.session_state.rental_rates = {
+                'has_rentals': False,
+                'items': [
+                    {'description': '', 'unit': '', 'qty': 0.0, 'rate': 0.0},
+                    {'description': '', 'unit': '', 'qty': 0.0, 'rate': 0.0},
+                    {'description': '', 'unit': '', 'qty': 0.0, 'rate': 0.0}
+                ]
+            }
 
 # Add at the start of your app
 client = None
@@ -303,7 +312,7 @@ def create_document(content, file_format):
     global section2_counter  # Move it here
     try:
         buffer = io.BytesIO()
-        doc = Document()
+        doc = Document()  # Initialize the Document object
         
         client_name = st.session_state.questions['client']["answer"].strip() # Keep client_name accessible
 
@@ -381,7 +390,7 @@ def create_document(content, file_format):
                 # Skip content if we're in section 2 and see markdown
                 if in_section_2 and any(marker in paragraph for marker in [
                     "Contractor will provide Deliverables under this SOW as described here:",
-                    "**2. Description of Deliverables**",
+                    "**2. Deliverables**",
                     "**Deliverable",
                     "| Milestone |",
                     "|-----------|",
@@ -405,10 +414,17 @@ def create_document(content, file_format):
                     labor_cost = sum(details['total'] for deliverable in st.session_state.deliverables.values() 
                                   for details in deliverable.get('labor_costs', {}).values() 
                                   if isinstance(details, dict))
+                    
+                    # Calculate rental total
+                    rental_total = 0.0
+                    if st.session_state.rental_rates.get('has_rentals', False):
+                        rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
+                    
                     additional_expenses = (
                         st.session_state.expenses['mileage'] * st.session_state.expenses['mileage_rate'] +
                         st.session_state.expenses['truck_days'] * st.session_state.expenses['truck_rate'] +
-                        st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup'])
+                        st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup']) +
+                        rental_total
                     )
                     total_cost = labor_cost + additional_expenses
                     
@@ -460,6 +476,38 @@ def create_document(content, file_format):
                                 p.add_run("Total Labor Cost for Deliverable: ")
                                 p.add_run(f"${total_deliverable_cost:,.2f}").bold = True
                     
+                    # Add rental costs section if there are rentals
+                    if st.session_state.rental_rates.get('has_rentals', False) and rental_total > 0:
+                        p_rental_header = doc.add_paragraph()
+                        run_rental_header = p_rental_header.add_run("Rental Costs")
+                        apply_base_heading_style(run_rental_header)
+                        run_rental_header.bold = True
+                        
+                        table = doc.add_table(rows=1, cols=5)
+                        format_table(table)
+                        header_cells = table.rows[0].cells
+                        header_cells[0].paragraphs[0].add_run('Item Description').bold = True
+                        header_cells[1].paragraphs[0].add_run('Unit of Measure').bold = True
+                        header_cells[2].paragraphs[0].add_run('Qty').bold = True
+                        header_cells[3].paragraphs[0].add_run('Rate').bold = True
+                        header_cells[4].paragraphs[0].add_run('Total').bold = True
+                        
+                        for item in st.session_state.rental_rates['items']:
+                            if item['description'] and item['qty'] > 0 and item['rate'] > 0:
+                                item_total = item['qty'] * item['rate']
+                                row_cells = table.add_row().cells
+                                row_cells[0].text = item['description']
+                                row_cells[1].text = item['unit']
+                                row_cells[2].text = f"{item['qty']:.1f}"
+                                row_cells[3].text = f"${item['rate']:.2f}"
+                                row_cells[4].text = f"${item_total:,.2f}"
+                        
+                        doc.add_paragraph()  # Add space before total
+                        p = doc.add_paragraph()
+                        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                        p.add_run("Total Rental Costs: ")
+                        p.add_run(f"${rental_total:,.2f}").bold = True
+                    
                     # Add Additional Expenses table
                     p_exp_header = doc.add_paragraph()
                     run_exp_header = p_exp_header.add_run("Additional Expenses")
@@ -504,6 +552,13 @@ def create_document(content, file_format):
                     row_cells[1].text = f"Including {expenses['materials_markup']*100:.1f}% markup"
                     materials_total = expenses['materials_cost'] * (1 + expenses['materials_markup'])
                     row_cells[2].text = f"${materials_total:,.2f}"
+                    
+                    # Rentals row (if there are rentals)
+                    if rental_total > 0:
+                        row_cells = table.add_row().cells
+                        row_cells[0].text = 'Rentals'
+                        row_cells[1].text = 'Equipment and service rentals'
+                        row_cells[2].text = f"${rental_total:,.2f}"
     
                     # Add spacing after table
                     doc.add_paragraph()
@@ -565,7 +620,7 @@ def create_document(content, file_format):
                     run_header.bold = True
                     continue
 
-                elif "2. Description of Deliverables" in paragraph or "**2. Deliverables**" in paragraph:
+                elif "2. Deliverables" in paragraph:
                     # Check processed flag immediately
                     if hasattr(doc, 'section2_processed'):
                         continue
@@ -625,7 +680,6 @@ def create_document(content, file_format):
                 elif in_section_2 and any(marker in paragraph for marker in [
                     "Contractor will provide Deliverables under this SOW as described here",
                     "Contractor will provide all Deliverables",
-                    "**2. Description of Deliverables**",
                     "**2. Deliverables**",
                     "| Milestone |",
                     "|-----------|",
@@ -648,14 +702,7 @@ def create_document(content, file_format):
                 ]):
                     continue
 
-                elif "3. Term of this SOW" in paragraph or "**3. Term of this SOW**" in paragraph:
-                    p_header = doc.add_paragraph()
-                    run_header = p_header.add_run("3. Term of this SOW")
-                    apply_base_heading_style(run_header)
-                    run_header.bold = True
-                    continue
-
-                elif "4. Term of this SOW" in paragraph or "**4. Term of this SOW**" in paragraph:
+                elif "3. Term of this SOW" in paragraph:
                     p_header = doc.add_paragraph()
                     run_header = p_header.add_run("3. Term of this SOW")
                     apply_base_heading_style(run_header)
@@ -673,10 +720,17 @@ def create_document(content, file_format):
                     labor_cost = sum(details['total'] for deliverable in st.session_state.deliverables.values() 
                                   for details in deliverable.get('labor_costs', {}).values() 
                                   if isinstance(details, dict))
+                    
+                    # Calculate rental total
+                    rental_total = 0.0
+                    if st.session_state.rental_rates.get('has_rentals', False):
+                        rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
+                    
                     additional_expenses = (
                         st.session_state.expenses['mileage'] * st.session_state.expenses['mileage_rate'] +
                         st.session_state.expenses['truck_days'] * st.session_state.expenses['truck_rate'] +
-                        st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup'])
+                        st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup']) +
+                        rental_total
                     )
                     total_cost = labor_cost + additional_expenses
                     
@@ -730,22 +784,85 @@ def create_document(content, file_format):
                                 p.add_run("Total Labor Cost for Deliverable: ")
                                 p.add_run(f"${total_deliverable_cost:,.2f}").bold = True
                     
+                    # Add rental costs section if there are rentals
+                    if st.session_state.rental_rates.get('has_rentals', False) and rental_total > 0:
+                        p_rental_header = doc.add_paragraph()
+                        run_rental_header = p_rental_header.add_run("Rental Costs")
+                        apply_base_heading_style(run_rental_header)
+                        run_rental_header.bold = True
+                        
+                        table = doc.add_table(rows=1, cols=5)
+                        format_table(table)
+                        header_cells = table.rows[0].cells
+                        header_cells[0].paragraphs[0].add_run('Item Description').bold = True
+                        header_cells[1].paragraphs[0].add_run('Unit of Measure').bold = True
+                        header_cells[2].paragraphs[0].add_run('Qty').bold = True
+                        header_cells[3].paragraphs[0].add_run('Rate').bold = True
+                        header_cells[4].paragraphs[0].add_run('Total').bold = True
+                        
+                        for item in st.session_state.rental_rates['items']:
+                            if item['description'] and item['qty'] > 0 and item['rate'] > 0:
+                                item_total = item['qty'] * item['rate']
+                                row_cells = table.add_row().cells
+                                row_cells[0].text = item['description']
+                                row_cells[1].text = item['unit']
+                                row_cells[2].text = f"{item['qty']:.1f}"
+                                row_cells[3].text = f"${item['rate']:.2f}"
+                                row_cells[4].text = f"${item_total:,.2f}"
+                        
+                        doc.add_paragraph()  # Add space before total
+                        p = doc.add_paragraph()
+                        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                        p.add_run("Total Rental Costs: ")
+                        p.add_run(f"${rental_total:,.2f}").bold = True
+                    
                     # Add Additional Expenses table
                     p_exp_header = doc.add_paragraph()
                     run_exp_header = p_exp_header.add_run("Additional Expenses")
                     apply_base_heading_style(run_exp_header)
                     run_exp_header.bold = True
                     
-                    table = doc.add_table(rows=1, cols=2)
+                    table = doc.add_table(rows=1, cols=3)
                     format_table(table)
                     header_cells = table.rows[0].cells
-                    header_cells[0].paragraphs[0].add_run('Category').bold = True
-                    header_cells[1].paragraphs[0].add_run('Amount').bold = True
+                    header_cells[0].paragraphs[0].add_run('Expense Type').bold = True
+                    header_cells[1].paragraphs[0].add_run('Details').bold = True
+                    header_cells[2].paragraphs[0].add_run('Amount').bold = True
                     
-                    # Add rows for expenses
+                    # Add expense rows
+                    expenses = st.session_state.expenses
+                    
+                    # Mileage row
                     row_cells = table.add_row().cells
-                    row_cells[0].text = 'Additional Costs'
-                    row_cells[1].text = f'${additional_expenses:,.2f}'
+                    row_cells[0].text = 'Mileage'
+                    mileage = expenses['mileage']
+                    mileage_str = str(int(mileage)) if mileage.is_integer() else f"{mileage:.1f}"
+                    row_cells[1].text = f"{mileage_str} miles @ ${expenses['mileage_rate']:.3f}/mile"
+                    mileage_total = expenses['mileage'] * expenses['mileage_rate']
+                    row_cells[2].text = f"${mileage_total:,.2f}"
+                    
+                    # Truck Days row
+                    row_cells = table.add_row().cells
+                    row_cells[0].text = 'Truck Days'
+                    truck_days = expenses['truck_days']
+                    truck_days_str = str(int(truck_days)) if truck_days.is_integer() else f"{truck_days:.1f}"
+                    row_cells[1].text = f"{truck_days_str} days @ ${expenses['truck_rate']:.2f}/day"
+                    truck_total = expenses['truck_days'] * expenses['truck_rate']
+                    row_cells[2].text = f"${truck_total:,.2f}"
+                    
+                    # Materials row
+                    row_cells = table.add_row().cells
+                    row_cells[0].text = 'Materials'
+                    row_cells[1].text = f"Including {expenses['materials_markup']*100:.1f}% markup"
+                    materials_total = expenses['materials_cost'] * (1 + expenses['materials_markup'])
+                    row_cells[2].text = f"${materials_total:,.2f}"
+                    
+                    # Rentals row (if there are rentals)
+                    if rental_total > 0:
+                        row_cells = table.add_row().cells
+                        row_cells[0].text = 'Rentals'
+                        row_cells[1].text = 'Equipment and service rentals'
+                        row_cells[2].text = f"${rental_total:,.2f}"
                     
                     # Add Project Totals table
                     p_total_header = doc.add_paragraph()
@@ -1496,7 +1613,13 @@ def create_entries_record():
         mileage_total = st.session_state.expenses.get('mileage', 0) * st.session_state.expenses.get('mileage_rate', 0)
         truck_total = st.session_state.expenses.get('truck_days', 0) * st.session_state.expenses.get('truck_rate', 0)
         materials_total = st.session_state.expenses.get('materials_cost', 0) * (1 + st.session_state.expenses.get('materials_markup', 0))
-        total_additional_costs = mileage_total + truck_total + materials_total
+        
+        # Calculate rental total
+        rental_total = 0.0
+        if st.session_state.rental_rates.get('has_rentals', False):
+            rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
+        
+        total_additional_costs = mileage_total + truck_total + materials_total + rental_total
 
         # Additional Costs section
         doc.add_heading(f'Additional Costs: ${total_additional_costs:,.2f}').bold = True
@@ -1505,6 +1628,8 @@ def create_entries_record():
         doc.add_paragraph(f"Mileage Total: ${mileage_total:,.2f}")
         doc.add_paragraph(f"Truck Total: ${truck_total:,.2f}")
         doc.add_paragraph(f"Materials Total: ${materials_total:,.2f}")
+        if rental_total > 0:
+            doc.add_paragraph(f"Rental Total: ${rental_total:,.2f}")
 
         # Final Totals
         doc.add_paragraph()
@@ -1598,18 +1723,6 @@ def generate_legal_preamble(client_name, client_address, sow_date, master_terms_
     preamble = f"""This statement of work ("SOW"), dated as of {sow_date_str} (the "SOW Effective Date") is by and between {client_name} ("Customer") with its principal place of business located at {client_address} and American Winesecrets, LLC, doing business as Recovered Water Solutions with its principal address at 1446 Industrial Avenue, Sebastopol, CA    95472, a California LLC ("Contractor" or "RWS"). This SOW and any accompanying exhibits, is incorporated into, forms a part of, and is in all respects subject to the terms of a Master Terms & Conditions Agreement (the "Agreement") dated {master_date_str}."""
     return preamble
 
-def format_deliverables_section():
-    """Generate consolidated Deliverables section"""
-    # This function has been replaced by inline deliverables_text generation in generate_sow()
-    # Return empty string or redirect to new format
-    return ""
-
-def generate_section_3():
-    """This section has been consolidated into Section 2: Deliverables"""
-    # Section 3 Work Schedule has been consolidated into Section 2: Deliverables
-    # This function is no longer used
-    return ""
-
 def generate_section_4():
     """Generate Section 3 with timeline data from session state"""
     
@@ -1657,7 +1770,13 @@ def generate_section_5_costs():
     mileage_total = expenses['mileage'] * expenses['mileage_rate']
     truck_total = expenses['truck_days'] * expenses['truck_rate']
     materials_total = expenses['materials_cost'] * (1 + expenses['materials_markup'])
-    total_additional = mileage_total + truck_total + materials_total
+    
+    # Calculate rental total
+    rental_total = 0.0
+    if st.session_state.rental_rates.get('has_rentals', False):
+        rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
+    
+    total_additional = mileage_total + truck_total + materials_total + rental_total
     
     # Add narrative
     client_name = st.session_state.questions['client']["answer"].strip()
@@ -1689,13 +1808,29 @@ def generate_section_5_costs():
                           if isinstance(details, dict))
             section += f"\n**Total Labor Cost for Deliverable: ${del_total:,.2f}**\n\n"
     
+    # Add rental costs section if there are rentals
+    if st.session_state.rental_rates.get('has_rentals', False) and rental_total > 0:
+        section += "\n**Rental Costs**\n\n"
+        section += "| Item Description | Unit of Measure | Qty | Rate | Total |\n"
+        section += "|------------------|-----------------|-----|------|-------|\n"
+        
+        for item in st.session_state.rental_rates['items']:
+            if item['description'] and item['qty'] > 0 and item['rate'] > 0:
+                item_total = item['qty'] * item['rate']
+                section += (f"| {item['description']} | {item['unit']} | "
+                          f"{item['qty']:.1f} | ${item['rate']:.2f} | ${item_total:,.2f} |\n")
+        
+        section += f"\n**Total Rental Costs: ${rental_total:,.2f}**\n\n"
+    
     # Add expenses section with table
     section += "\n**Additional Expenses**\n\n"
     section += "| Expense Type | Details | Amount |\n"
     section += "|--------------|----------|--------|\n"
     section += f"| Mileage | {expenses['mileage']} miles @ ${expenses['mileage_rate']:.3f}/mile | ${mileage_total:,.2f} |\n"
     section += f"| Truck Days | {expenses['truck_days']} days @ ${expenses['truck_rate']:.2f}/day | ${truck_total:,.2f} |\n"
-    section += f"| Materials | Including {expenses['materials_markup']*100}% markup | ${materials_total:,.2f} |\n"
+    section += f"| Materials | Including {expenses['materials_markup']*100:.1f}% markup | ${materials_total:,.2f} |\n"
+    if rental_total > 0:
+        section += f"| Rentals | Equipment and service rentals | ${rental_total:,.2f} |\n"
     
     # Add totals section
     section += "\n**Project Totals**\n\n"
@@ -1706,12 +1841,6 @@ def generate_section_5_costs():
     section += f"| **Total Project Cost** | **${total_labor_cost + total_additional:,.2f}** |\n"
     
     return section
-
-def generate_section_6(client_name):
-    if hasattr(st.session_state, 'title_terms') and st.session_state.title_terms:
-        terms = st.session_state.title_terms.replace('[Client Name]', client_name)
-        return f"\n**6. Title and Risk of Loss**\n\n{terms}"
-    return f"\n**6. Title and Risk of Loss**\n\nN/A"
 
 def generate_section_7(client_name):
     section = (
@@ -1737,66 +1866,6 @@ def generate_section_9():
         schedule_list = "\n• ".join(file.name for file in st.session_state.attached_schedules)
         return f"\n**7. List of attached SOW Schedules**\n\n {schedule_list}"
     return f"\n**7. List of attached SOW Schedules**\n\nNone"
-
-def generate_section_5():
-    """Generate Additional Terms or Payment Terms section, etc."""
-    section = "**5. Payment Terms**\n\n"
-    
-    # Suppose we want to list deliverables that have cost info
-    # (This is just an example – adapt as needed)
-    if st.session_state.deliverables:
-        valid_deliverables = 0
-        for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
-            description_filled = bool(deliverable.get('description', '').strip())
-            if description_filled:
-                valid_deliverables += 1
-                # Suppose we print labor_costs if present
-                labor_costs = deliverable.get('labor_costs', {})
-                # ... format them, etc.
-                section += f"- {deliverable['description']} (Cost details: {labor_costs})\n"
-        
-        if valid_deliverables == 0:
-            section += "No payment terms have been defined.\n"
-    else:
-        section += "No payment terms have been defined.\n"
-
-    return section
-
-# ALTERNATIVE EXECUTIVE SUMMARY GENERATION - COMMENTED OUT FOR FUTURE REFERENCE
-# async def generate_executive_summary(user_input, additional_statements):
-#     prompt = f"""
-#     Generate a compelling Executive Summary that tells the project's story. The summary should:
-#     
-#     Style and Tone:
-#     - Create narrative flow with a clear beginning, middle, and resolution
-#     - Build subtle tension by highlighting challenges/risks
-#     - Show how your expertise provides the solution
-#     - Maintain professional tone while engaging the reader
-#     - Use active voice and confident language
-#     
-#     Key Elements to Weave Together:
-#     - Current situation and critical challenges
-#     - Stakes and implications for the client
-#     - Your unique approach and expertise
-#     - Implementation strategy
-#     - Value proposition and expected outcomes
-#     
-#     Structure:
-#     - Opening: Hook reader with context and challenge
-#     - Middle: Present solution and expertise
-#     - Close: Highlight benefits and confidence in success
-#     
-#     Using this input:
-#     Project Details: {user_input} 
-#     Additional Context: {additional_statements}
-#     
-#     Create a flowing 2-3 paragraph narrative that builds trust while showcasing your understanding and capability.
-#     Focus on telling a compelling story that demonstrates value and expertise.
-#     """
-#
-#     # Generate using GenAI
-#     response = await generate_content(prompt)
-#     return response
 
 def main():
     # Define CSS for styling
@@ -2220,6 +2289,97 @@ def main():
         for question in st.session_state.questions['project_details']['technical_details']:
             question["answer"] = get_audio_input(question["question"], f"tech_{question['id']}")
 
+    # Rental Rates section
+    st.markdown("### Rental Rates")
+    st.session_state.rental_rates['has_rentals'] = st.radio(
+        "Are there any rental rates to include?",
+        options=["Yes", "No"],
+        index=1,
+        key="has_rentals"
+    )
+    
+    if st.session_state.rental_rates['has_rentals'] == "Yes":
+        st.markdown("**Rental Rates Table**")
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            num_rental_rows = st.selectbox(
+                label="Number of rental items",
+                options=list(range(1, 10)),
+                key="rental_rows_count",
+                label_visibility="collapsed"
+            )
+        
+        # Initialize rental items in session state if not present
+        if 'rental_rates' not in st.session_state:
+            st.session_state.rental_rates = {
+                'has_rentals': False,
+                'items': []
+            }
+        
+        # Ensure the number of rental items matches the selected count
+        while len(st.session_state.rental_rates['items']) < num_rental_rows:
+            st.session_state.rental_rates['items'].append({
+                'description': '',
+                'unit': '',
+                'qty': 0.0,
+                'rate': 0.0
+            })
+        
+        while len(st.session_state.rental_rates['items']) > num_rental_rows:
+            st.session_state.rental_rates['items'].pop()
+        
+        # Display rental item inputs
+        for j, rental_item in enumerate(st.session_state.rental_rates['items']):
+            st.markdown(f"*Rental Item {j + 1}*")
+            
+            # Create unique keys for rental item inputs
+            desc_key = f"rental_desc_{j}"
+            unit_key = f"rental_unit_{j}"
+            qty_key = f"rental_qty_{j}"
+            rate_key = f"rental_rate_{j}"
+            
+            # Rental item description
+            rental_desc = st.text_input(
+                f"Description for rental item {j + 1}",
+                value=rental_item.get('description', ''),
+                key=desc_key
+            )
+            
+            # Rental item unit
+            rental_unit = st.text_input(
+                f"Unit for rental item {j + 1}",
+                value=rental_item.get('unit', ''),
+                key=unit_key
+            )
+            
+            # Rental item quantity
+            rental_qty = st.number_input(
+                f"Quantity for rental item {j + 1}",
+                value=float(rental_item.get('qty', 0.0)),
+                key=qty_key,
+                min_value=0.0,
+                step=1.0,
+                format="%.2f"
+            )
+            
+            # Rental item rate
+            rental_rate = st.number_input(
+                f"Rate for rental item {j + 1}",
+                value=float(rental_item.get('rate', 0.0)),
+                key=rate_key,
+                min_value=0.0,
+                step=1.0,
+                format="%.2f"
+            )
+            
+            # Update rental item in session state
+            st.session_state.rental_rates['items'][j] = {
+                'description': rental_desc,
+                'unit': rental_unit,
+                'qty': rental_qty,
+                'rate': rental_rate
+            }
+
     # Additional Project Details
     st.subheader("Additional Project Details")
     for question in st.session_state.questions['additional_details']:
@@ -2304,13 +2464,20 @@ def main():
         truck_total = st.session_state.expenses['truck_days'] * st.session_state.expenses['truck_rate']
         materials_total = st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup'])
         
+        # Calculate rental total
+        rental_total = 0.0
+        if st.session_state.rental_rates.get('has_rentals', False):
+            rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
+        
         # Display totals with consistent formatting
         st.text(f"Mileage Total: ${mileage_total:.2f}")
         st.text(f"Truck Total: ${truck_total:.2f}")
         st.text(f"Materials Total: ${materials_total:.2f}")
+        if rental_total > 0:
+            st.text(f"Rental Total: ${rental_total:.2f}")
     
-    # Calculate total additional costs
-    total_additional_costs = mileage_total + truck_total + materials_total
+    # Calculate total additional costs including rentals
+    total_additional_costs = mileage_total + truck_total + materials_total + rental_total
     
     # Define labor roles
     labor_roles = [
