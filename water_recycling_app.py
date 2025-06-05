@@ -565,7 +565,7 @@ def create_document(content, file_format):
                     run_header.bold = True
                     continue
 
-                elif "2. Description of Deliverables" in paragraph:
+                elif "2. Description of Deliverables" in paragraph or "**2. Deliverables**" in paragraph:
                     # Check processed flag immediately
                     if hasattr(doc, 'section2_processed'):
                         continue
@@ -584,7 +584,7 @@ def create_document(content, file_format):
                     
                     if completion_date:
                         formatted_completion_date = completion_date.strftime('%B %d, %Y')
-                        intro_text = f"Contractor will provide all Deliverables to {client_name} by {formatted_completion_date}. Specific deliverable timelines are described below."
+                        intro_text = f"Contractor will provide all Deliverables to {client_name} by Target completion date {formatted_completion_date}. Specific deliverable timelines are described below."
                     else:
                         intro_text = f"Contractor will provide all Deliverables to {client_name}. Specific deliverable timelines are described below."
                     
@@ -621,19 +621,30 @@ def create_document(content, file_format):
                     doc.section2_processed = True
                     continue
 
-                # Add comprehensive skip conditions
+                # Add comprehensive skip conditions - but don't skip our new deliverable format
                 elif in_section_2 and any(marker in paragraph for marker in [
                     "Contractor will provide Deliverables under this SOW as described here",
                     "Contractor will provide all Deliverables",
                     "**2. Description of Deliverables**",
                     "**2. Deliverables**",
-                    "**Deliverable",
-                    "• Deliverable",
-                    "- Deliverable",
                     "| Milestone |",
                     "|-----------|",
                     "| Description |",
                     "| Target Date |"
+                ]) and not any(keep_marker in paragraph for keep_marker in [
+                    "- Target:",
+                    "by June",
+                    "by July", 
+                    "by August",
+                    "by September",
+                    "by October",
+                    "by November",
+                    "by December",
+                    "by January",
+                    "by February",
+                    "by March",
+                    "by April",
+                    "by May"
                 ]):
                     continue
 
@@ -1197,7 +1208,7 @@ def generate_sow():  # no longer async
                 return
 
             deliverables_text = "\n\n**2. Deliverables**\n\n"
-            deliverables_text += f"Contractor will provide all Deliverables to {client_name} by {formatted_completion_date}. Specific deliverable timelines are described below.\n\n"
+            deliverables_text += f"Contractor will provide all Deliverables to {client_name} by Target completion date {formatted_completion_date}. Specific deliverable timelines are described below.\n\n"
 
             for deliverable_index, (deliverable_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                 if deliverable.get('description'):
