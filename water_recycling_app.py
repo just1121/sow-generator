@@ -2239,118 +2239,8 @@ def main():
                 'due_date': milestone_date
             }
 
-        # Equipment and materials (after milestones)
-        equipment = st.text_area(
-            "Equipment and materials provided:",
-            help="List any equipment or materials included\n" +
-                 "Example: 'RO1110 system, wine vessels, system chiller'",
-            value=st.session_state.deliverables[deliverable_key].get('equipment_provided', ''),
-            key=f"equipment_{deliverable_key}"
-        )
-
-        # Additional services
-        additional = st.text_area(
-            "Additional services:",
-            help="Any additional services or opportunities\n" +
-                 "Example: 'Offering samples to potential customers'",
-            value=st.session_state.deliverables[deliverable_key].get('additional_services', ''),
-            key=f"additional_{deliverable_key}"
-        )
-
-        # Update session state
-        st.session_state.deliverables[deliverable_key].update({
-            'description': description,
-            'equipment_provided': equipment,
-            'additional_services': additional,
-            'target_date': target_date,
-            'milestones': current_milestones
-        })
-
-        # Labor Categories expander for this deliverable
-        with st.expander(f"Labor Categories - Deliverable {i + 1}"):
-            labor_categories = {
-                "Project Management": {"rate": 325.00, "hours": 0},
-                "Senior Wastewater Consultant": {"rate": 275.00, "hours": 0}, 
-                "Wastewater Consultant": {"rate": 225.00, "hours": 0},
-                "Senior Winemaker": {"rate": 250.00, "hours": 0},
-                "Winemaker": {"rate": 200.00, "hours": 0},
-                "Process Engineer": {"rate": 225.00, "hours": 0},
-                "Mechanical Engineer": {"rate": 225.00, "hours": 0},
-                "Fabrication Specialist": {"rate": 175.00, "hours": 0},
-                "Discipline Specialist": {"rate": 175.00, "hours": 0},
-                "Operation/Training Technician - ST": {"rate": 150.00, "hours": 0},
-                "Operation/Training Technician - OT": {"rate": 225.00, "hours": 0},
-                "AI Support": {"rate": 200.00, "hours": 0},
-                "Administration/Purchasing": {"rate": 135.00, "hours": 0},
-                "Schedule Administration": {"rate": 135.00, "hours": 0},
-                "Cost Administration": {"rate": 135.00, "hours": 0}
-            }
-            
-            # Initialize total cost for this deliverable
-            total_deliverable_cost = 0.0
-            
-            for role, details in labor_categories.items():
-                col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
-                
-                with col1:
-                    st.text(role)
-                with col2:
-                    st.text(f"${details['rate']:.2f}/hr")
-                with col3:
-                    # Create a unique key for tracking hours
-                    hours_key = f"hours_{deliverable_key}_{role.replace(' ', '_')}"
-                    
-                    # Get existing hours from session state
-                    existing_hours = st.session_state.deliverables.get(deliverable_key, {}).get('labor_costs', {}).get(role, {}).get('hours', 0)
-                    
-                    hours = st.number_input(
-                        f"Hours",
-                        value=float(existing_hours),
-                        key=hours_key,
-                        min_value=0.0,
-                        step=0.25,
-                        format="%.2f",
-                        label_visibility="collapsed"
-                    )
-                    
-                with col4:
-                    # Calculate total before displaying
-                    details['total'] = details['rate'] * hours
-                    st.text(f"${details['total']:,.2f}")
-                    total_deliverable_cost += details['total']
-                
-                # Show description field if hours > 0
-                if hours > 0:
-                    desc_key = f"work_desc_{deliverable_key}_{role.replace(' ', '_')}"
-                    existing_desc = st.session_state.deliverables.get(deliverable_key, {}).get('labor_costs', {}).get(role, {}).get('description', '')
-                    work_description = st.text_area(
-                        "Description of Work",
-                        value=existing_desc,
-                        key=desc_key,
-                        placeholder=f"Enter description for {role} work...",
-                        label_visibility="collapsed"
-                    )
-                else:
-                    work_description = ""
-                
-                # Update session state for this role
-                if deliverable_key not in st.session_state.deliverables:
-                    st.session_state.deliverables[deliverable_key] = {'labor_costs': {}}
-                if 'labor_costs' not in st.session_state.deliverables[deliverable_key]:
-                    st.session_state.deliverables[deliverable_key]['labor_costs'] = {}
-                
-                st.session_state.deliverables[deliverable_key]['labor_costs'][role] = {
-                    'hours': hours,
-                    'rate': details['rate'],
-                    'total': details['total'],
-                    'description': work_description
-                }
-            
-            # Show individual total for the deliverable
-            st.markdown(f"**Total Cost for Deliverable {i + 1}: ${total_deliverable_cost:,.2f}**")
-
-        # Additional Costs section for this deliverable
-        with st.expander(f"Additional Costs - Deliverable {i + 1}"):
+        # Additional Costs section for this deliverable (moved after milestones)
+        with st.expander(f"Deliverable {i + 1} Related Costs"):
             # Initialize additional costs in deliverable if not present
             if 'additional_costs' not in st.session_state.deliverables[deliverable_key]:
                 st.session_state.deliverables[deliverable_key]['additional_costs'] = {
@@ -2498,6 +2388,106 @@ def main():
             if deliverable_additional_total > 0:
                 st.markdown(f"**Additional Costs for Deliverable {i + 1}: ${deliverable_additional_total:,.2f}**")
 
+        # Labor Categories expander for this deliverable
+        with st.expander(f"Labor Categories - Deliverable {i + 1}"):
+            labor_categories = {
+                "Project Management": {"rate": 325.00, "hours": 0},
+                "Senior Wastewater Consultant": {"rate": 275.00, "hours": 0}, 
+                "Wastewater Consultant": {"rate": 225.00, "hours": 0},
+                "Senior Winemaker": {"rate": 250.00, "hours": 0},
+                "Winemaker": {"rate": 200.00, "hours": 0},
+                "Process Engineer": {"rate": 225.00, "hours": 0},
+                "Mechanical Engineer": {"rate": 225.00, "hours": 0},
+                "Fabrication Specialist": {"rate": 175.00, "hours": 0},
+                "Discipline Specialist": {"rate": 175.00, "hours": 0},
+                "Operation/Training Technician - ST": {"rate": 150.00, "hours": 0},
+                "Operation/Training Technician - OT": {"rate": 225.00, "hours": 0},
+                "AI Support": {"rate": 200.00, "hours": 0},
+                "Administration/Purchasing": {"rate": 135.00, "hours": 0},
+                "Schedule Administration": {"rate": 135.00, "hours": 0},
+                "Cost Administration": {"rate": 135.00, "hours": 0}
+            }
+            
+            # Initialize total cost for this deliverable
+            total_deliverable_cost = 0.0
+            
+            for role, details in labor_categories.items():
+                col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+                
+                with col1:
+                    st.text(role)
+                with col2:
+                    st.text(f"${details['rate']:.2f}/hr")
+                with col3:
+                    # Create a unique key for tracking hours
+                    hours_key = f"hours_{deliverable_key}_{role.replace(' ', '_')}"
+                    
+                    # Get existing hours from session state
+                    existing_hours = st.session_state.deliverables.get(deliverable_key, {}).get('labor_costs', {}).get(role, {}).get('hours', 0)
+                    
+                    hours = st.number_input(
+                        f"Hours",
+                        value=float(existing_hours),
+                        key=hours_key,
+                        min_value=0.0,
+                        step=0.25,
+                        format="%.2f",
+                        label_visibility="collapsed"
+                    )
+                    
+                with col4:
+                    # Calculate total before displaying
+                    details['total'] = details['rate'] * hours
+                    st.text(f"${details['total']:,.2f}")
+                    total_deliverable_cost += details['total']
+                
+                # Show description field if hours > 0
+                if hours > 0:
+                    desc_key = f"work_desc_{deliverable_key}_{role.replace(' ', '_')}"
+                    existing_desc = st.session_state.deliverables.get(deliverable_key, {}).get('labor_costs', {}).get(role, {}).get('description', '')
+                    work_description = st.text_area(
+                        "Description of Work",
+                        value=existing_desc,
+                        key=desc_key,
+                        placeholder=f"Enter description for {role} work...",
+                        label_visibility="collapsed"
+                    )
+                else:
+                    work_description = ""
+                
+                # Update session state for this role
+                if deliverable_key not in st.session_state.deliverables:
+                    st.session_state.deliverables[deliverable_key] = {'labor_costs': {}}
+                if 'labor_costs' not in st.session_state.deliverables[deliverable_key]:
+                    st.session_state.deliverables[deliverable_key]['labor_costs'] = {}
+                
+                st.session_state.deliverables[deliverable_key]['labor_costs'][role] = {
+                    'hours': hours,
+                    'rate': details['rate'],
+                    'total': details['total'],
+                    'description': work_description
+                }
+            
+            # Show individual total for the deliverable
+            st.markdown(f"**Total Cost for Deliverable {i + 1}: ${total_deliverable_cost:,.2f}**")
+
+        # Additional services section (after labor categories)
+        additional = st.text_area(
+            f"Additional services for this deliverable:",
+            help="Any additional services or opportunities\n" +
+                 "Example: 'Offering samples to potential customers'",
+            value=st.session_state.deliverables[deliverable_key].get('additional_services', ''),
+            key=f"additional_{deliverable_key}"
+        )
+
+        # Update session state
+        st.session_state.deliverables[deliverable_key].update({
+            'description': description,
+            'additional_services': additional,
+            'target_date': target_date,
+            'milestones': current_milestones
+        })
+
         st.markdown("</div>", unsafe_allow_html=True)
 
         # Add separator between deliverables
@@ -2624,12 +2614,11 @@ def main():
     st.markdown(f"**Total Additional Costs: ${total_additional_costs:,.2f}**")
     st.markdown(f"**Total Project Cost: ${(st.session_state['total_labor_cost'] + total_additional_costs):,.2f}**")
 
-    # Additional options section (moved before SOW generation)
+    # SOW options section (moved before SOW generation)
     st.markdown("---")
-    st.subheader("Additional Options")
+    st.subheader("SOW Options")
     
     # Additional Terms
-    st.markdown("**Additional Terms & Conditions**")
     has_additional_terms = st.checkbox(
         "Include additional terms and conditions",
         value=getattr(st.session_state, 'has_additional_terms', False),
