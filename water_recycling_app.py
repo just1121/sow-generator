@@ -1691,7 +1691,13 @@ def create_entries_record():
                 
                 # Travel
                 if additional_costs.get('travel', {}).get('enabled', False):
-                    total_deliverable_additional_costs += additional_costs['travel']['amount']
+                    travel_data = additional_costs['travel']
+                    if 'items' in travel_data:
+                        # New format with multiple items
+                        total_deliverable_additional_costs += sum(item.get('amount', 0) for item in travel_data['items'])
+                    else:
+                        # Old format compatibility
+                        total_deliverable_additional_costs += travel_data.get('amount', 0)
         
         # Calculate global additional costs (materials only)
         materials_total = st.session_state.expenses.get('materials_cost', 0) * (1 + st.session_state.expenses.get('materials_markup', 0.25))
@@ -1869,7 +1875,13 @@ def generate_section_5_costs():
             
             # Travel
             if additional_costs.get('travel', {}).get('enabled', False):
-                total_deliverable_additional_costs += additional_costs['travel']['amount']
+                travel_data = additional_costs['travel']
+                if 'items' in travel_data:
+                    # New format with multiple items
+                    total_deliverable_additional_costs += sum(item.get('amount', 0) for item in travel_data['items'])
+                else:
+                    # Old format compatibility
+                    total_deliverable_additional_costs += travel_data.get('amount', 0)
     
     # Calculate global additional costs (materials only)
     expenses = st.session_state.expenses
@@ -1962,10 +1974,22 @@ def generate_section_5_costs():
                     
                     # Travel
                     if additional_costs.get('travel', {}).get('enabled', False):
-                        amount = additional_costs['travel']['amount']
-                        desc = additional_costs['travel']['description']
-                        section += f"| Travel | {desc} | ${amount:,.2f} |\n"
-                        deliverable_additional_total += amount
+                        travel_data = additional_costs['travel']
+                        if 'items' in travel_data:
+                            # New format with multiple items
+                            for item in travel_data['items']:
+                                amount = item.get('amount', 0)
+                                desc = item.get('description', '')
+                                if amount > 0 or desc:
+                                    section += f"| Travel | {desc} | ${amount:,.2f} |\n"
+                                    deliverable_additional_total += amount
+                        else:
+                            # Old format compatibility
+                            amount = travel_data.get('amount', 0)
+                            desc = travel_data.get('description', '')
+                            if amount > 0 or desc:
+                                section += f"| Travel | {desc} | ${amount:,.2f} |\n"
+                                deliverable_additional_total += amount
                     
                     section += f"\n**Total Additional Costs for Deliverable {i}: ${deliverable_additional_total:,.2f}**\n\n"
     
