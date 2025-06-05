@@ -1,3 +1,4 @@
+# Streamlit SOW Generator - Updated UI and Fixed Additional Terms
 import streamlit as st
 import google.generativeai as genai
 from dotenv import load_dotenv
@@ -2628,14 +2629,24 @@ def main():
     st.subheader("Additional Options")
     
     # Additional Terms
-    st.markdown("**Additional Terms & Conditions (Optional)**")
-    additional_terms = st.text_area(
-        "Enter any additional terms and conditions:",
-        value=getattr(st.session_state, 'additional_terms', ''),
-        height=100,
-        help="These will be added to Section 6 of the SOW"
+    st.markdown("**Additional Terms & Conditions**")
+    has_additional_terms = st.checkbox(
+        "Include additional terms and conditions",
+        value=getattr(st.session_state, 'has_additional_terms', False),
+        key="has_additional_terms_checkbox"
     )
-    st.session_state.additional_terms = additional_terms
+    st.session_state.has_additional_terms = has_additional_terms
+    
+    if has_additional_terms:
+        additional_terms = st.text_area(
+            "Enter any additional terms and conditions:",
+            value=getattr(st.session_state, 'additional_terms', ''),
+            height=100,
+            help="These will be added to Section 6 of the SOW"
+        )
+        st.session_state.additional_terms = additional_terms
+    else:
+        st.session_state.additional_terms = ""
     
     # File attachments
     st.markdown("**Attach SOW Schedules (Optional)**")
