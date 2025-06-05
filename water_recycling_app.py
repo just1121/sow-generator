@@ -634,7 +634,7 @@ def create_document(content, file_format):
                         project_header_cells = project_table.rows[0].cells
                         project_header_cells[0].paragraphs[0].add_run('Cost Type').bold = True
                         project_header_cells[1].paragraphs[0].add_run('Details').bold = True
-                                                project_header_cells[2].paragraphs[0].add_run('Amount').bold = True
+                        project_header_cells[2].paragraphs[0].add_run('Amount').bold = True
                     
                         # Materials row
                         row_cells = project_table.add_row().cells
@@ -2120,6 +2120,23 @@ def main():
 
     st.markdown("---")
     
+    # Debug/Reset section
+    with st.expander("🔧 Debug & Reset"):
+        if st.button("Clear All Data and Start Fresh", type="secondary"):
+            # Clear all session state
+            for key in list(st.session_state.keys()):
+                if key not in ['test_mode']:  # Keep test_mode if it exists
+                    del st.session_state[key]
+            st.success("All data cleared! Please refresh the page.")
+            st.rerun()
+        
+        st.write("Current equipment rental structure:")
+        for i in range(st.session_state.get('deliverables_count', 1)):
+            deliverable_key = f"deliverable_{i+1}"
+            if deliverable_key in st.session_state.get('deliverables', {}):
+                equipment_data = st.session_state.deliverables[deliverable_key].get('additional_costs', {}).get('equipment_rentals', {})
+                st.write(f"Deliverable {i+1}: {equipment_data}")
+    
     # Only show audio input option if both speech and audio recorder are available
     if speech_available and audio_recorder_available:
         st.session_state.input_method = st.radio("Choose input method:", ['Text', 'Audio'])
@@ -2351,28 +2368,47 @@ def main():
                     'travel': {'enabled': False, 'items': []}
                 }
             
-            # Migrate old format to new format if needed
+            # Force new format for equipment rentals - always use weekly structure
             additional_costs = st.session_state.deliverables[deliverable_key]['additional_costs']
-            if 'equipment_rentals' in additional_costs and 'description' in additional_costs['equipment_rentals']:
-                # Old format - convert to new
-                old_desc = additional_costs['equipment_rentals'].get('description', '')
-                old_amount = additional_costs['equipment_rentals'].get('amount', 0.0)
-                if old_desc or old_amount > 0:
-                    additional_costs['equipment_rentals'] = {
-                        'enabled': additional_costs['equipment_rentals']['enabled'],
-                        'items': [{'description': old_desc, 'weeks': 1, 'rate_per_week': old_amount}]
-                    }
-                else:
-                    additional_costs['equipment_rentals'] = {'enabled': False, 'items': []}
             
-            # Migrate equipment rental items that don't have weeks/rate structure
-            if 'equipment_rentals' in additional_costs and 'items' in additional_costs['equipment_rentals']:
+            # Check if equipment_rentals exists and migrate/initialize properly
+            if 'equipment_rentals' not in additional_costs:
+                additional_costs['equipment_rentals'] = {'enabled': False, 'items': []}
+            
+            # Convert old single description/amount format to new multiple items format
+            if 'equipment_rentals' in additional_costs:
+                equipment_rentals = additional_costs['equipment_rentals']
+                
+                # If it has old single 'description' and 'amount' fields, convert to new format
+                if 'description' in equipment_rentals or 'amount' in equipment_rentals:
+                    old_desc = equipment_rentals.get('description', '')
+                    old_amount = equipment_rentals.get('amount', 0.0)
+                    old_enabled = equipment_rentals.get('enabled', False)
+                    
+                    # Replace with new format
+                    additional_costs['equipment_rentals'] = {
+                        'enabled': old_enabled,
+                        'items': [{'description': old_desc, 'weeks': 1, 'rate_per_week': old_amount}] if (old_desc or old_amount > 0) else []
+                    }
+                
+                # Ensure 'items' key exists
+                if 'items' not in additional_costs['equipment_rentals']:
+                    additional_costs['equipment_rentals']['items'] = []
+                
+                # Convert any remaining old amount-only items to weeks/rate structure
                 for item in additional_costs['equipment_rentals']['items']:
-                    # Convert old amount-only items to weeks/rate structure
                     if 'amount' in item and 'weeks' not in item:
                         old_amount = item.pop('amount', 0.0)
                         item['weeks'] = 1
                         item['rate_per_week'] = old_amount
+                    
+                    # Ensure all required fields exist
+                    if 'weeks' not in item:
+                        item['weeks'] = 1
+                    if 'rate_per_week' not in item:
+                        item['rate_per_week'] = 0.0
+                    if 'description' not in item:
+                        item['description'] = ''
             
             # Migrate travel from old format to new format if needed
             if 'travel' in additional_costs and 'description' in additional_costs['travel']:
@@ -2400,12 +2436,28 @@ def main():
             if equipment_rental_enabled:
                 rental_items = additional_costs['equipment_rentals']['items']
                 
+                # Debug information (remove this after testing)
+                st.write(f"DEBUG: rental_items structure: {rental_items}")
+                
                 # Ensure at least one item exists
                 if not rental_items:
                     rental_items.append({'description': '', 'weeks': 1, 'rate_per_week': 0.0})
                     additional_costs['equipment_rentals']['items'] = rental_items
                 
                 equipment_total = 0.0
+                
+                # Add column headers
+                col1, col2, col3, col4, col5 = st.columns([2, 0.7, 1, 0.7, 0.3])
+                with col1:
+                    st.markdown("**Description**")
+                with col2:
+                    st.markdown("**Weeks**")
+                with col3:
+                    st.markdown("**Rate/Week ($)**")
+                with col4:
+                    st.markdown("**Total**")
+                with col5:
+                    st.markdown("**Remove**")
                 
                 for idx, item in enumerate(rental_items):
                     col1, col2, col3, col4, col5 = st.columns([2, 0.7, 1, 0.7, 0.3])
