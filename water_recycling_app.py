@@ -254,20 +254,12 @@ def initialize_session_state():
         if 'expenses' not in st.session_state:  # Added this
             st.session_state.expenses = {
                 'materials_cost': 0.0,
-                'materials_markup': 0.25,    # Correct markup
-                'mileage': 0,
-                'mileage_rate': 0.625,      # Correct rate
-                'truck_days': 0,
-                'truck_rate': 200.00        # Correct rate
+                'materials_markup': 0.25    # Correct markup
             }
-        if 'rental_rates' not in st.session_state:  # Added rental rates
+        if 'rental_rates' not in st.session_state:  # Added for backward compatibility
             st.session_state.rental_rates = {
                 'has_rentals': False,
-                'items': [
-                    {'description': '', 'unit': '', 'qty': 0.0, 'rate': 0.0},
-                    {'description': '', 'unit': '', 'qty': 0.0, 'rate': 0.0},
-                    {'description': '', 'unit': '', 'qty': 0.0, 'rate': 0.0}
-                ]
+                'items': []
             }
 
 # Add at the start of your app
@@ -415,18 +407,36 @@ def create_document(content, file_format):
                                   for details in deliverable.get('labor_costs', {}).values() 
                                   if isinstance(details, dict))
                     
-                    # Calculate rental total
-                    rental_total = 0.0
-                    if st.session_state.rental_rates.get('has_rentals', False):
-                        rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
+                    # Calculate deliverable-specific additional costs
+                    total_deliverable_additional_costs = 0.0
+                    for deliverable in st.session_state.deliverables.values():
+                        if 'additional_costs' in deliverable:
+                            additional_costs = deliverable['additional_costs']
+                            
+                            # Equipment rentals
+                            if additional_costs.get('equipment_rentals', {}).get('enabled', False):
+                                total_deliverable_additional_costs += additional_costs['equipment_rentals']['amount']
+                            
+                            # Mileage
+                            if additional_costs.get('mileage', {}).get('enabled', False):
+                                total_deliverable_additional_costs += (additional_costs['mileage']['miles'] * 
+                                                                     additional_costs['mileage']['rate'])
+                            
+                            # Truck days
+                            if additional_costs.get('truck_days', {}).get('enabled', False):
+                                total_deliverable_additional_costs += (additional_costs['truck_days']['days'] * 
+                                                                     additional_costs['truck_days']['rate'])
+                            
+                            # Travel
+                            if additional_costs.get('travel', {}).get('enabled', False):
+                                total_deliverable_additional_costs += additional_costs['travel']['amount']
                     
-                    additional_expenses = (
-                        st.session_state.expenses['mileage'] * st.session_state.expenses['mileage_rate'] +
-                        st.session_state.expenses['truck_days'] * st.session_state.expenses['truck_rate'] +
-                        st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup']) +
-                        rental_total
-                    )
-                    total_cost = labor_cost + additional_expenses
+                    # Calculate global additional costs (materials only)
+                    expenses = st.session_state.expenses
+                    materials_total = expenses.get('materials_cost', 0) * (1 + expenses.get('materials_markup', 0.25))
+                    
+                    total_additional_costs = total_deliverable_additional_costs + materials_total
+                    total_cost = labor_cost + total_additional_costs
                     
                     narrative = (f"The estimated cost for completion of this Statement of Work is ${total_cost:,.2f}. "
                                f"The tables below details the estimated efforts required. Material changes to the "
@@ -439,7 +449,7 @@ def create_document(content, file_format):
                     p_narrative = doc.add_paragraph()
                     add_markdown_runs(p_narrative, narrative, apply_base_body_style)
                     
-                    # Add deliverable labor cost tables
+                    # Add deliverable labor cost tables and their additional costs
                     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                         if isinstance(deliverable.get('labor_costs'), dict):
                             p_del_header = doc.add_paragraph()
@@ -475,99 +485,104 @@ def create_document(content, file_format):
                                 p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
                                 p.add_run("Total Labor Cost for Deliverable: ")
                                 p.add_run(f"${total_deliverable_cost:,.2f}").bold = True
+                            
+                            # Add deliverable-specific additional costs if any
+                            if 'additional_costs' in deliverable:
+                                additional_costs = deliverable['additional_costs']
+                                deliverable_additional_total = 0.0
+                                
+                                # Check if any additional costs are enabled
+                                if (additional_costs.get('equipment_rentals', {}).get('enabled', False) or
+                                    additional_costs.get('mileage', {}).get('enabled', False) or
+                                    additional_costs.get('truck_days', {}).get('enabled', False) or
+                                    additional_costs.get('travel', {}).get('enabled', False)):
+                                    
+                                    p_add_header = doc.add_paragraph()
+                                    run_add_header = p_add_header.add_run(f"Additional Costs for Deliverable {i}")
+                                    apply_base_heading_style(run_add_header)
+                                    run_add_header.bold = True
+                                    
+                                    add_table = doc.add_table(rows=1, cols=3)
+                                    format_table(add_table)
+                                    add_header_cells = add_table.rows[0].cells
+                                    add_header_cells[0].paragraphs[0].add_run('Cost Type').bold = True
+                                    add_header_cells[1].paragraphs[0].add_run('Description').bold = True
+                                    add_header_cells[2].paragraphs[0].add_run('Amount').bold = True
+                                    
+                                    # Equipment rentals
+                                    if additional_costs.get('equipment_rentals', {}).get('enabled', False):
+                                        amount = additional_costs['equipment_rentals']['amount']
+                                        desc = additional_costs['equipment_rentals']['description']
+                                        row_cells = add_table.add_row().cells
+                                        row_cells[0].text = 'Equipment Rentals'
+                                        row_cells[1].text = desc
+                                        row_cells[2].text = f"${amount:,.2f}"
+                                        deliverable_additional_total += amount
+                                    
+                                    # Mileage
+                                    if additional_costs.get('mileage', {}).get('enabled', False):
+                                        miles = additional_costs['mileage']['miles']
+                                        rate = additional_costs['mileage']['rate']
+                                        amount = miles * rate
+                                        row_cells = add_table.add_row().cells
+                                        row_cells[0].text = 'Mileage'
+                                        row_cells[1].text = f"{miles:.1f} miles @ ${rate:.3f}/mile"
+                                        row_cells[2].text = f"${amount:,.2f}"
+                                        deliverable_additional_total += amount
+                                    
+                                    # Truck days
+                                    if additional_costs.get('truck_days', {}).get('enabled', False):
+                                        days = additional_costs['truck_days']['days']
+                                        rate = additional_costs['truck_days']['rate']
+                                        amount = days * rate
+                                        row_cells = add_table.add_row().cells
+                                        row_cells[0].text = 'Truck Days'
+                                        row_cells[1].text = f"{days:.1f} days @ ${rate:.2f}/day"
+                                        row_cells[2].text = f"${amount:,.2f}"
+                                        deliverable_additional_total += amount
+                                    
+                                    # Travel
+                                    if additional_costs.get('travel', {}).get('enabled', False):
+                                        amount = additional_costs['travel']['amount']
+                                        desc = additional_costs['travel']['description']
+                                        row_cells = add_table.add_row().cells
+                                        row_cells[0].text = 'Travel'
+                                        row_cells[1].text = desc
+                                        row_cells[2].text = f"${amount:,.2f}"
+                                        deliverable_additional_total += amount
+                                    
+                                    if deliverable_additional_total > 0:
+                                        doc.add_paragraph()  # Add space before total
+                                        p = doc.add_paragraph()
+                                        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                                        p.add_run(f"Total Additional Costs for Deliverable {i}: ")
+                                        p.add_run(f"${deliverable_additional_total:,.2f}").bold = True
                     
-                    # Add rental costs section if there are rentals
-                    if st.session_state.rental_rates.get('has_rentals', False) and rental_total > 0:
-                        p_rental_header = doc.add_paragraph()
-                        run_rental_header = p_rental_header.add_run("Rental Costs")
-                        apply_base_heading_style(run_rental_header)
-                        run_rental_header.bold = True
+                    # Add global additional costs if any
+                    if materials_total > 0:
+                        p_global_header = doc.add_paragraph()
+                        run_global_header = p_global_header.add_run("Global Additional Costs")
+                        apply_base_heading_style(run_global_header)
+                        run_global_header.bold = True
                         
-                        table = doc.add_table(rows=1, cols=5)
-                        format_table(table)
-                        header_cells = table.rows[0].cells
-                        header_cells[0].paragraphs[0].add_run('Item Description').bold = True
-                        header_cells[1].paragraphs[0].add_run('Unit of Measure').bold = True
-                        header_cells[2].paragraphs[0].add_run('Qty').bold = True
-                        header_cells[3].paragraphs[0].add_run('Rate').bold = True
-                        header_cells[4].paragraphs[0].add_run('Total').bold = True
+                        global_table = doc.add_table(rows=1, cols=3)
+                        format_table(global_table)
+                        global_header_cells = global_table.rows[0].cells
+                        global_header_cells[0].paragraphs[0].add_run('Cost Type').bold = True
+                        global_header_cells[1].paragraphs[0].add_run('Details').bold = True
+                        global_header_cells[2].paragraphs[0].add_run('Amount').bold = True
                         
-                        for item in st.session_state.rental_rates['items']:
-                            if item['description'] and item['qty'] > 0 and item['rate'] > 0:
-                                item_total = item['qty'] * item['rate']
-                                row_cells = table.add_row().cells
-                                row_cells[0].text = item['description']
-                                row_cells[1].text = item['unit']
-                                row_cells[2].text = f"{item['qty']:.1f}"
-                                row_cells[3].text = f"${item['rate']:.2f}"
-                                row_cells[4].text = f"${item_total:,.2f}"
+                        # Materials row
+                        row_cells = global_table.add_row().cells
+                        row_cells[0].text = 'Materials'
+                        row_cells[1].text = f"Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup"
+                        row_cells[2].text = f"${materials_total:,.2f}"
                         
                         doc.add_paragraph()  # Add space before total
                         p = doc.add_paragraph()
                         p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                        p.add_run("Total Rental Costs: ")
-                        p.add_run(f"${rental_total:,.2f}").bold = True
-                    
-                    # Add Additional Expenses table
-                    p_exp_header = doc.add_paragraph()
-                    run_exp_header = p_exp_header.add_run("Additional Expenses")
-                    apply_base_heading_style(run_exp_header)
-                    run_exp_header.bold = True
-                    
-                    table = doc.add_table(rows=1, cols=3)
-                    format_table(table)
-                    
-                    # Set headers for Additional Expenses table
-                    header_cells = table.rows[0].cells
-                    header_cells[0].paragraphs[0].add_run('Expense Type').bold = True
-                    header_cells[1].paragraphs[0].add_run('Details').bold = True
-                    header_cells[2].paragraphs[0].add_run('Amount').bold = True
-                    
-                    # Add expense rows
-                    expenses = st.session_state.expenses
-                    
-                    # Mileage row
-                    row_cells = table.add_row().cells
-                    row_cells[0].text = 'Mileage'
-                    # Format mileage as whole number if it's a whole number, otherwise show decimals
-                    mileage = expenses['mileage']
-                    mileage_str = str(int(mileage)) if mileage.is_integer() else f"{mileage:.1f}"
-                    row_cells[1].text = f"{mileage_str} miles @ ${expenses['mileage_rate']:.3f}/mile"
-                    mileage_total = expenses['mileage'] * expenses['mileage_rate']
-                    row_cells[2].text = f"${mileage_total:,.2f}"
-                    
-                    # Truck Days row
-                    row_cells = table.add_row().cells
-                    row_cells[0].text = 'Truck Days'
-                    # Format truck days as whole number if it's a whole number, otherwise show decimals
-                    truck_days = expenses['truck_days']
-                    truck_days_str = str(int(truck_days)) if truck_days.is_integer() else f"{truck_days:.1f}"
-                    row_cells[1].text = f"{truck_days_str} days @ ${expenses['truck_rate']:.2f}/day"
-                    truck_total = expenses['truck_days'] * expenses['truck_rate']
-                    row_cells[2].text = f"${truck_total:,.2f}"
-                    
-                    # Materials row
-                    row_cells = table.add_row().cells
-                    row_cells[0].text = 'Materials'
-                    row_cells[1].text = f"Including {expenses['materials_markup']*100:.1f}% markup"
-                    materials_total = expenses['materials_cost'] * (1 + expenses['materials_markup'])
-                    row_cells[2].text = f"${materials_total:,.2f}"
-                    
-                    # Rentals row (if there are rentals)
-                    if rental_total > 0:
-                        row_cells = table.add_row().cells
-                        row_cells[0].text = 'Rentals'
-                        row_cells[1].text = 'Equipment and service rentals'
-                        row_cells[2].text = f"${rental_total:,.2f}"
-    
-                    # Add spacing after table
-                    doc.add_paragraph()
-                    
-                    # Add rows for expenses
-                    row_cells = table.add_row().cells
-                    row_cells[0].text = 'Additional Costs'
-                    row_cells[1].text = ''  # Empty details column
-                    row_cells[2].text = f'${additional_expenses:,.2f}'  # Amount in last column
+                        p.add_run("Total Global Additional Costs: ")
+                        p.add_run(f"${materials_total:,.2f}").bold = True
                     
                     # Add Project Totals table
                     p_total_header = doc.add_paragraph()
@@ -586,9 +601,19 @@ def create_document(content, file_format):
                     row_cells[0].text = 'Total Labor Costs'
                     row_cells[1].text = f'${labor_cost:,.2f}'
                     
+                    if total_deliverable_additional_costs > 0:
+                        row_cells = table.add_row().cells
+                        row_cells[0].text = 'Total Deliverable-Specific Additional Costs'
+                        row_cells[1].text = f'${total_deliverable_additional_costs:,.2f}'
+                    
+                    if materials_total > 0:
+                        row_cells = table.add_row().cells
+                        row_cells[0].text = 'Total Global Additional Costs'
+                        row_cells[1].text = f'${materials_total:,.2f}'
+                    
                     row_cells = table.add_row().cells
                     row_cells[0].text = 'Total Additional Costs'
-                    row_cells[1].text = f'${additional_expenses:,.2f}'
+                    row_cells[1].text = f'${total_additional_costs:,.2f}'
                     
                     row_cells = table.add_row().cells
                     p1 = row_cells[0].paragraphs[0]
@@ -729,8 +754,7 @@ def create_document(content, file_format):
                     additional_expenses = (
                         st.session_state.expenses['mileage'] * st.session_state.expenses['mileage_rate'] +
                         st.session_state.expenses['truck_days'] * st.session_state.expenses['truck_rate'] +
-                        st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup']) +
-                        rental_total
+                        st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup'])
                     )
                     total_cost = labor_cost + additional_expenses
                     
@@ -824,6 +848,8 @@ def create_document(content, file_format):
                     
                     table = doc.add_table(rows=1, cols=3)
                     format_table(table)
+                    
+                    # Set headers for Additional Expenses table
                     header_cells = table.rows[0].cells
                     header_cells[0].paragraphs[0].add_run('Expense Type').bold = True
                     header_cells[1].paragraphs[0].add_run('Details').bold = True
@@ -835,6 +861,7 @@ def create_document(content, file_format):
                     # Mileage row
                     row_cells = table.add_row().cells
                     row_cells[0].text = 'Mileage'
+                    # Format mileage as whole number if it's a whole number, otherwise show decimals
                     mileage = expenses['mileage']
                     mileage_str = str(int(mileage)) if mileage.is_integer() else f"{mileage:.1f}"
                     row_cells[1].text = f"{mileage_str} miles @ ${expenses['mileage_rate']:.3f}/mile"
@@ -844,6 +871,7 @@ def create_document(content, file_format):
                     # Truck Days row
                     row_cells = table.add_row().cells
                     row_cells[0].text = 'Truck Days'
+                    # Format truck days as whole number if it's a whole number, otherwise show decimals
                     truck_days = expenses['truck_days']
                     truck_days_str = str(int(truck_days)) if truck_days.is_integer() else f"{truck_days:.1f}"
                     row_cells[1].text = f"{truck_days_str} days @ ${expenses['truck_rate']:.2f}/day"
@@ -857,12 +885,15 @@ def create_document(content, file_format):
                     materials_total = expenses['materials_cost'] * (1 + expenses['materials_markup'])
                     row_cells[2].text = f"${materials_total:,.2f}"
                     
-                    # Rentals row (if there are rentals)
-                    if rental_total > 0:
-                        row_cells = table.add_row().cells
-                        row_cells[0].text = 'Rentals'
-                        row_cells[1].text = 'Equipment and service rentals'
-                        row_cells[2].text = f"${rental_total:,.2f}"
+    
+                    # Add spacing after table
+                    doc.add_paragraph()
+                    
+                    # Add rows for expenses
+                    row_cells = table.add_row().cells
+                    row_cells[0].text = 'Additional Costs'
+                    row_cells[1].text = ''  # Empty details column
+                    row_cells[2].text = f'${additional_expenses:,.2f}'  # Amount in last column
                     
                     # Add Project Totals table
                     p_total_header = doc.add_paragraph()
@@ -886,8 +917,10 @@ def create_document(content, file_format):
                     row_cells[1].text = f'${additional_expenses:,.2f}'
                     
                     row_cells = table.add_row().cells
-                    row_cells[0].text = 'Total Project Cost'
-                    row_cells[1].text = f'${total_cost:,.2f}'
+                    p1 = row_cells[0].paragraphs[0]
+                    p2 = row_cells[1].paragraphs[0]
+                    p1.add_run('Total Project Cost').bold = True
+                    p2.add_run(f'${total_cost:,.2f}').bold = True
                     
                     doc.add_paragraph()  # Add spacing after Section 5
                     continue
@@ -1609,27 +1642,43 @@ def create_entries_record():
         doc.add_heading('Additional Statements', level=1)
         doc.add_paragraph(f'Response: {st.session_state.additional_statements}\n')
 
-        # Calculate additional costs ONCE using the safer .get() method
-        mileage_total = st.session_state.expenses.get('mileage', 0) * st.session_state.expenses.get('mileage_rate', 0)
-        truck_total = st.session_state.expenses.get('truck_days', 0) * st.session_state.expenses.get('truck_rate', 0)
-        materials_total = st.session_state.expenses.get('materials_cost', 0) * (1 + st.session_state.expenses.get('materials_markup', 0))
+        # Calculate additional costs using the new per-deliverable structure
+        total_deliverable_additional_costs = 0.0
+        for deliverable in st.session_state.deliverables.values():
+            if 'additional_costs' in deliverable:
+                additional_costs = deliverable['additional_costs']
+                
+                # Equipment rentals
+                if additional_costs.get('equipment_rentals', {}).get('enabled', False):
+                    total_deliverable_additional_costs += additional_costs['equipment_rentals']['amount']
+                
+                # Mileage
+                if additional_costs.get('mileage', {}).get('enabled', False):
+                    total_deliverable_additional_costs += (additional_costs['mileage']['miles'] * 
+                                                         additional_costs['mileage']['rate'])
+                
+                # Truck days
+                if additional_costs.get('truck_days', {}).get('enabled', False):
+                    total_deliverable_additional_costs += (additional_costs['truck_days']['days'] * 
+                                                         additional_costs['truck_days']['rate'])
+                
+                # Travel
+                if additional_costs.get('travel', {}).get('enabled', False):
+                    total_deliverable_additional_costs += additional_costs['travel']['amount']
         
-        # Calculate rental total
-        rental_total = 0.0
-        if st.session_state.rental_rates.get('has_rentals', False):
-            rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
+        # Calculate global additional costs (materials only)
+        materials_total = st.session_state.expenses.get('materials_cost', 0) * (1 + st.session_state.expenses.get('materials_markup', 0.25))
         
-        total_additional_costs = mileage_total + truck_total + materials_total
+        total_additional_costs = total_deliverable_additional_costs + materials_total
 
         # Additional Costs section
         doc.add_heading(f'Additional Costs: ${total_additional_costs:,.2f}').bold = True
         
-        # Display the costs
-        doc.add_paragraph(f"Mileage Total: ${mileage_total:,.2f}")
-        doc.add_paragraph(f"Truck Total: ${truck_total:,.2f}")
-        doc.add_paragraph(f"Materials Total: ${materials_total:,.2f}")
-        if rental_total > 0:
-            doc.add_paragraph(f"Rental Total: ${rental_total:,.2f}")
+        # Display the costs breakdown
+        if total_deliverable_additional_costs > 0:
+            doc.add_paragraph(f"Deliverable-Specific Additional Costs: ${total_deliverable_additional_costs:,.2f}")
+        if materials_total > 0:
+            doc.add_paragraph(f"Global Materials Total: ${materials_total:,.2f}")
 
         # Final Totals
         doc.add_paragraph()
@@ -1765,22 +1814,40 @@ def generate_section_5_costs():
         if isinstance(details, dict)
     )
     
-    # Calculate expenses totals
+    # Calculate deliverable-specific additional costs
+    total_deliverable_additional_costs = 0.0
+    for deliverable in st.session_state.deliverables.values():
+        if 'additional_costs' in deliverable:
+            additional_costs = deliverable['additional_costs']
+            
+            # Equipment rentals
+            if additional_costs.get('equipment_rentals', {}).get('enabled', False):
+                total_deliverable_additional_costs += additional_costs['equipment_rentals']['amount']
+            
+            # Mileage
+            if additional_costs.get('mileage', {}).get('enabled', False):
+                total_deliverable_additional_costs += (additional_costs['mileage']['miles'] * 
+                                                     additional_costs['mileage']['rate'])
+            
+            # Truck days
+            if additional_costs.get('truck_days', {}).get('enabled', False):
+                total_deliverable_additional_costs += (additional_costs['truck_days']['days'] * 
+                                                     additional_costs['truck_days']['rate'])
+            
+            # Travel
+            if additional_costs.get('travel', {}).get('enabled', False):
+                total_deliverable_additional_costs += additional_costs['travel']['amount']
+    
+    # Calculate global additional costs (materials only)
     expenses = st.session_state.expenses
-    mileage_total = expenses['mileage'] * expenses['mileage_rate']
-    truck_total = expenses['truck_days'] * expenses['truck_rate']
-    materials_total = expenses['materials_cost'] * (1 + expenses['materials_markup'])
+    materials_total = expenses.get('materials_cost', 0) * (1 + expenses.get('materials_markup', 0.25))
     
-    # Calculate rental total
-    rental_total = 0.0
-    if st.session_state.rental_rates.get('has_rentals', False):
-        rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
-    
-    total_additional = mileage_total + truck_total + materials_total + rental_total
+    total_additional_costs = total_deliverable_additional_costs + materials_total
+    total_project_cost = total_labor_cost + total_additional_costs
     
     # Add narrative
     client_name = st.session_state.questions['client']["answer"].strip()
-    section += (f"The estimated cost for completion of this Statement of Work is ${total_labor_cost + total_additional:,.2f}. "
+    section += (f"The estimated cost for completion of this Statement of Work is ${total_project_cost:,.2f}. "
                 f"The tables below details the estimated efforts required. Material changes to the "
                 f"SOW will be agreed upon in writing and may constitute a change in basis for "
                 f"compensation increasing or decreasing accordingly.\n\n"
@@ -1807,38 +1874,75 @@ def generate_section_5_costs():
             del_total = sum(details['total'] for details in deliverable['labor_costs'].values() 
                           if isinstance(details, dict))
             section += f"\n**Total Labor Cost for Deliverable: ${del_total:,.2f}**\n\n"
+            
+            # Add deliverable-specific additional costs if any
+            if 'additional_costs' in deliverable:
+                additional_costs = deliverable['additional_costs']
+                deliverable_additional_total = 0.0
+                has_additional_costs = False
+                
+                # Check if any additional costs are enabled
+                if (additional_costs.get('equipment_rentals', {}).get('enabled', False) or
+                    additional_costs.get('mileage', {}).get('enabled', False) or
+                    additional_costs.get('truck_days', {}).get('enabled', False) or
+                    additional_costs.get('travel', {}).get('enabled', False)):
+                    
+                    has_additional_costs = True
+                    section += f"**Additional Costs for Deliverable {i}**\n\n"
+                    section += "| Cost Type | Description | Amount |\n"
+                    section += "|-----------|-------------|--------|\n"
+                    
+                    # Equipment rentals
+                    if additional_costs.get('equipment_rentals', {}).get('enabled', False):
+                        amount = additional_costs['equipment_rentals']['amount']
+                        desc = additional_costs['equipment_rentals']['description']
+                        section += f"| Equipment Rentals | {desc} | ${amount:,.2f} |\n"
+                        deliverable_additional_total += amount
+                    
+                    # Mileage
+                    if additional_costs.get('mileage', {}).get('enabled', False):
+                        miles = additional_costs['mileage']['miles']
+                        rate = additional_costs['mileage']['rate']
+                        amount = miles * rate
+                        section += f"| Mileage | {miles:.1f} miles @ ${rate:.3f}/mile | ${amount:,.2f} |\n"
+                        deliverable_additional_total += amount
+                    
+                    # Truck days
+                    if additional_costs.get('truck_days', {}).get('enabled', False):
+                        days = additional_costs['truck_days']['days']
+                        rate = additional_costs['truck_days']['rate']
+                        amount = days * rate
+                        section += f"| Truck Days | {days:.1f} days @ ${rate:.2f}/day | ${amount:,.2f} |\n"
+                        deliverable_additional_total += amount
+                    
+                    # Travel
+                    if additional_costs.get('travel', {}).get('enabled', False):
+                        amount = additional_costs['travel']['amount']
+                        desc = additional_costs['travel']['description']
+                        section += f"| Travel | {desc} | ${amount:,.2f} |\n"
+                        deliverable_additional_total += amount
+                    
+                    section += f"\n**Total Additional Costs for Deliverable {i}: ${deliverable_additional_total:,.2f}**\n\n"
     
-    # Add rental costs section if there are rentals
-    if st.session_state.rental_rates.get('has_rentals', False) and rental_total > 0:
-        section += "\n**Rental Costs**\n\n"
-        section += "| Item Description | Unit of Measure | Qty | Rate | Total |\n"
-        section += "|------------------|-----------------|-----|------|-------|\n"
-        
-        for item in st.session_state.rental_rates['items']:
-            if item['description'] and item['qty'] > 0 and item['rate'] > 0:
-                item_total = item['qty'] * item['rate']
-                section += (f"| {item['description']} | {item['unit']} | "
-                          f"{item['qty']:.1f} | ${item['rate']:.2f} | ${item_total:,.2f} |\n")
-        
-        section += f"\n**Total Rental Costs: ${rental_total:,.2f}**\n\n"
-    
-    # Add expenses section with table
-    section += "\n**Additional Expenses**\n\n"
-    section += "| Expense Type | Details | Amount |\n"
-    section += "|--------------|----------|--------|\n"
-    section += f"| Mileage | {expenses['mileage']} miles @ ${expenses['mileage_rate']:.3f}/mile | ${mileage_total:,.2f} |\n"
-    section += f"| Truck Days | {expenses['truck_days']} days @ ${expenses['truck_rate']:.2f}/day | ${truck_total:,.2f} |\n"
-    section += f"| Materials | Including {expenses['materials_markup']*100:.1f}% markup | ${materials_total:,.2f} |\n"
-    if rental_total > 0:
-        section += f"| Rentals | Equipment and service rentals | ${rental_total:,.2f} |\n"
+    # Add global additional costs if any
+    if materials_total > 0:
+        section += "\n**Global Additional Costs**\n\n"
+        section += "| Cost Type | Details | Amount |\n"
+        section += "|-----------|---------|--------|\n"
+        section += f"| Materials | Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup | ${materials_total:,.2f} |\n"
+        section += f"\n**Total Global Additional Costs: ${materials_total:,.2f}**\n\n"
     
     # Add totals section
     section += "\n**Project Totals**\n\n"
     section += "| Category | Amount |\n"
     section += "|----------|--------|\n"
-    section += f"| Total Additional Costs | ${total_additional:,.2f} |\n"
     section += f"| Total Labor Costs | ${total_labor_cost:,.2f} |\n"
-    section += f"| **Total Project Cost** | **${total_labor_cost + total_additional:,.2f}** |\n"
+    if total_deliverable_additional_costs > 0:
+        section += f"| Total Deliverable-Specific Additional Costs | ${total_deliverable_additional_costs:,.2f} |\n"
+    if materials_total > 0:
+        section += f"| Total Global Additional Costs | ${materials_total:,.2f} |\n"
+    section += f"| Total Additional Costs | ${total_additional_costs:,.2f} |\n"
+    section += f"| **Total Project Cost** | **${total_project_cost:,.2f}** |\n"
     
     return section
 
@@ -2233,6 +2337,7 @@ def main():
                         if 'labor_costs' not in st.session_state.deliverables[deliverable_key]:
                             st.session_state.deliverables[deliverable_key]['labor_costs'] = {}
                         
+                        
                         st.session_state.deliverables[deliverable_key]['labor_costs'][role] = {
                             'hours': hours,
                             'rate': details['rate'],
@@ -2271,6 +2376,155 @@ def main():
                 # Show individual total for the deliverable
             st.markdown(f"**Total Cost for Deliverable {i + 1}: ${total_deliverable_cost:,.2f}**")
 
+        # Additional Costs section for this deliverable
+        with st.expander(f"Additional Costs - Deliverable {i + 1}"):
+            # Initialize additional costs in deliverable if not present
+            if 'additional_costs' not in st.session_state.deliverables[deliverable_key]:
+                st.session_state.deliverables[deliverable_key]['additional_costs'] = {
+                    'equipment_rentals': {'enabled': False, 'description': '', 'amount': 0.0},
+                    'mileage': {'enabled': False, 'miles': 0.0, 'rate': 0.625},
+                    'truck_days': {'enabled': False, 'days': 0.0, 'rate': 200.00},
+                    'travel': {'enabled': False, 'description': '', 'amount': 0.0}
+                }
+            
+            additional_costs = st.session_state.deliverables[deliverable_key]['additional_costs']
+            deliverable_additional_total = 0.0
+            
+            # Equipment Rentals
+            equipment_rental_enabled = st.checkbox(
+                "Equipment Rentals",
+                value=additional_costs['equipment_rentals']['enabled'],
+                key=f"equipment_rental_{deliverable_key}"
+            )
+            additional_costs['equipment_rentals']['enabled'] = equipment_rental_enabled
+            
+            if equipment_rental_enabled:
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    rental_desc = st.text_input(
+                        "Equipment rental description",
+                        value=additional_costs['equipment_rentals']['description'],
+                        key=f"rental_desc_{deliverable_key}",
+                        placeholder="e.g., RO system rental for 2 weeks"
+                    )
+                    additional_costs['equipment_rentals']['description'] = rental_desc
+                
+                with col2:
+                    rental_amount = st.number_input(
+                        "Rental amount ($)",
+                        value=float(additional_costs['equipment_rentals']['amount']),
+                        min_value=0.0,
+                        step=100.0,
+                        key=f"rental_amount_{deliverable_key}"
+                    )
+                    additional_costs['equipment_rentals']['amount'] = rental_amount
+                    deliverable_additional_total += rental_amount
+            
+            # Mileage
+            mileage_enabled = st.checkbox(
+                "Mileage",
+                value=additional_costs['mileage']['enabled'],
+                key=f"mileage_{deliverable_key}"
+            )
+            additional_costs['mileage']['enabled'] = mileage_enabled
+            
+            if mileage_enabled:
+                col1, col2, col3 = st.columns([1, 1, 1])
+                with col1:
+                    miles = st.number_input(
+                        "Miles",
+                        value=float(additional_costs['mileage']['miles']),
+                        min_value=0.0,
+                        step=1.0,
+                        key=f"miles_{deliverable_key}"
+                    )
+                    additional_costs['mileage']['miles'] = miles
+                
+                with col2:
+                    mileage_rate = st.number_input(
+                        "Rate per mile ($)",
+                        value=float(additional_costs['mileage']['rate']),
+                        min_value=0.0,
+                        step=0.001,
+                        format="%.3f",
+                        key=f"mileage_rate_{deliverable_key}"
+                    )
+                    additional_costs['mileage']['rate'] = mileage_rate
+                
+                with col3:
+                    mileage_total = miles * mileage_rate
+                    st.text(f"Total: ${mileage_total:.2f}")
+                    deliverable_additional_total += mileage_total
+            
+            # Truck Days
+            truck_days_enabled = st.checkbox(
+                "Truck Days",
+                value=additional_costs['truck_days']['enabled'],
+                key=f"truck_days_{deliverable_key}"
+            )
+            additional_costs['truck_days']['enabled'] = truck_days_enabled
+            
+            if truck_days_enabled:
+                col1, col2, col3 = st.columns([1, 1, 1])
+                with col1:
+                    days = st.number_input(
+                        "Days",
+                        value=float(additional_costs['truck_days']['days']),
+                        min_value=0.0,
+                        step=1.0,
+                        key=f"truck_days_count_{deliverable_key}"
+                    )
+                    additional_costs['truck_days']['days'] = days
+                
+                with col2:
+                    truck_rate = st.number_input(
+                        "Rate per day ($)",
+                        value=float(additional_costs['truck_days']['rate']),
+                        min_value=0.0,
+                        step=1.0,
+                        key=f"truck_rate_{deliverable_key}"
+                    )
+                    additional_costs['truck_days']['rate'] = truck_rate
+                
+                with col3:
+                    truck_total = days * truck_rate
+                    st.text(f"Total: ${truck_total:.2f}")
+                    deliverable_additional_total += truck_total
+            
+            # Travel
+            travel_enabled = st.checkbox(
+                "Travel",
+                value=additional_costs['travel']['enabled'],
+                key=f"travel_{deliverable_key}"
+            )
+            additional_costs['travel']['enabled'] = travel_enabled
+            
+            if travel_enabled:
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    travel_desc = st.text_input(
+                        "Travel description",
+                        value=additional_costs['travel']['description'],
+                        key=f"travel_desc_{deliverable_key}",
+                        placeholder="e.g., flights, hotel, meals"
+                    )
+                    additional_costs['travel']['description'] = travel_desc
+                
+                with col2:
+                    travel_amount = st.number_input(
+                        "Travel amount ($)",
+                        value=float(additional_costs['travel']['amount']),
+                        min_value=0.0,
+                        step=50.0,
+                        key=f"travel_amount_{deliverable_key}"
+                    )
+                    additional_costs['travel']['amount'] = travel_amount
+                    deliverable_additional_total += travel_amount
+            
+            # Show deliverable additional costs total
+            if deliverable_additional_total > 0:
+                st.markdown(f"**Additional Costs for Deliverable {i + 1}: ${deliverable_additional_total:,.2f}**")
+
         st.markdown("</div>", unsafe_allow_html=True)
 
             # Add separator between deliverables
@@ -2288,98 +2542,6 @@ def main():
     if tech_req == "Yes":
         for question in st.session_state.questions['project_details']['technical_details']:
             question["answer"] = get_audio_input(question["question"], f"tech_{question['id']}")
-
-    # Rental Rates section
-    st.markdown("### Rental Rates")
-    st.session_state.rental_rates['has_rentals'] = st.radio(
-        "Are there any rental rates to include?",
-        options=["Yes", "No"],
-        index=1,
-        key="has_rentals"
-    )
-    
-    if st.session_state.rental_rates['has_rentals'] == "Yes":
-        st.markdown("**Rental Rates Table**")
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            num_rental_rows = st.selectbox(
-                label="Number of rental items",
-                options=list(range(1, 10)),
-                key="rental_rows_count",
-                label_visibility="collapsed"
-            )
-        
-        # Initialize rental items in session state if not present
-        if 'rental_rates' not in st.session_state:
-            st.session_state.rental_rates = {
-                'has_rentals': False,
-                'items': []
-            }
-        
-        # Ensure the number of rental items matches the selected count
-        while len(st.session_state.rental_rates['items']) < num_rental_rows:
-            st.session_state.rental_rates['items'].append({
-                'description': '',
-                'unit': '',
-                'qty': 0.0,
-                'rate': 0.0
-            })
-        
-        while len(st.session_state.rental_rates['items']) > num_rental_rows:
-            st.session_state.rental_rates['items'].pop()
-        
-        # Display rental item inputs
-        for j, rental_item in enumerate(st.session_state.rental_rates['items']):
-            st.markdown(f"*Rental Item {j + 1}*")
-            
-            # Create unique keys for rental item inputs
-            desc_key = f"rental_desc_{j}"
-            unit_key = f"rental_unit_{j}"
-            qty_key = f"rental_qty_{j}"
-            rate_key = f"rental_rate_{j}"
-            
-            # Rental item description
-            rental_desc = st.text_input(
-                f"Description for rental item {j + 1}",
-                value=rental_item.get('description', ''),
-                key=desc_key
-            )
-            
-            # Rental item unit
-            rental_unit = st.selectbox(
-                f"Unit for rental item {j + 1}",
-                options=["Day", "Week", "Month"],
-                index=0 if not rental_item.get('unit') or rental_item.get('unit') not in ["Day", "Week", "Month"] else ["Day", "Week", "Month"].index(rental_item.get('unit')),
-                key=unit_key
-            )
-            
-            # Rental item quantity
-            rental_qty = st.number_input(
-                f"Quantity for rental item {j + 1}",
-                value=float(rental_item.get('qty', 0.0)),
-                key=qty_key,
-                min_value=0.0,
-                step=1.0,
-                format="%.2f"
-            )
-            
-            # Rental item rate
-            rental_rate = st.number_input(
-                f"Rate for rental item {j + 1}",
-                value=float(rental_item.get('rate', 0.0)),
-                key=rate_key,
-                min_value=0.0,
-                step=1.0,
-                format="%.2f"
-            )
-            
-            # Update rental item in session state
-            st.session_state.rental_rates['items'][j] = {
-                'description': rental_desc,
-                'unit': rental_unit,
-                'qty': rental_qty,
-                'rate': rental_rate
-            }
 
     # Additional Project Details
     st.subheader("Additional Project Details")
@@ -2406,53 +2568,61 @@ def main():
 
     # Additional Costs
     st.markdown("---")
-    st.subheader("Additional Costs")
+    st.subheader("Project Totals")
     
     # Reset total labor cost before calculating
     st.session_state['total_labor_cost'] = 0.0
     
-    # Calculate current total from deliverables
+    # Calculate current total from deliverables (labor + deliverable-specific additional costs)
+    total_deliverable_additional_costs = 0.0
     for i in range(num_deliverables):
         deliverable_key = f"deliverable_{i+1}"
         if deliverable_key in st.session_state.deliverables:
+            # Labor costs
             total_deliverable_cost = sum(
                 details.get('total', 0) 
                 for details in st.session_state.deliverables[deliverable_key].get('labor_costs', {}).values()
             )   
             st.session_state['total_labor_cost'] += total_deliverable_cost
             
+            # Additional costs from deliverables
+            if 'additional_costs' in st.session_state.deliverables[deliverable_key]:
+                additional_costs = st.session_state.deliverables[deliverable_key]['additional_costs']
+                
+                # Equipment rentals
+                if additional_costs.get('equipment_rentals', {}).get('enabled', False):
+                    total_deliverable_additional_costs += additional_costs['equipment_rentals']['amount']
+                
+                # Mileage
+                if additional_costs.get('mileage', {}).get('enabled', False):
+                    total_deliverable_additional_costs += (additional_costs['mileage']['miles'] * 
+                                                         additional_costs['mileage']['rate'])
+                
+                # Truck days
+                if additional_costs.get('truck_days', {}).get('enabled', False):
+                    total_deliverable_additional_costs += (additional_costs['truck_days']['days'] * 
+                                                         additional_costs['truck_days']['rate'])
+                
+                # Travel
+                if additional_costs.get('travel', {}).get('enabled', False):
+                    total_deliverable_additional_costs += additional_costs['travel']['amount']
+    
+    # Global additional costs (materials only now)
+    st.markdown("**Global Additional Costs**")
+    st.markdown("*These are project-wide costs not specific to any deliverable*")
+    
     # Initialize expenses with correct rates and types
     if 'expenses' not in st.session_state:
         st.session_state.expenses = {
-            'mileage_rate': 0.625,      # float
-            'mileage': 0.0,             # float
-            'truck_rate': 200.00,       # float
-            'truck_days': 0.0,          # float
             'materials_cost': 0.0,       # float
             'materials_markup': 0.25     # float
         }
     
     col1, col2 = st.columns(2)
     with col1:
-        mileage = st.number_input(
-            f"Mileage ($0.625/mile)", 
-            value=float(st.session_state.expenses['mileage']),
-            min_value=0.0,
-            step=1.0
-        )
-        st.session_state.expenses['mileage'] = float(mileage)
-        
-        truck_days = st.number_input(
-            f"Truck Days ($200.00/day)", 
-            value=float(st.session_state.expenses['truck_days']),
-            min_value=0.0,
-            step=1.0
-        )
-        st.session_state.expenses['truck_days'] = float(truck_days)
-        
         materials_cost = st.number_input(
             f"Materials Cost (+ 25% markup)", 
-            value=float(st.session_state.expenses['materials_cost']),
+            value=float(st.session_state.expenses.get('materials_cost', 0.0)),
             min_value=0.0,
             step=1.0
         )
@@ -2461,293 +2631,23 @@ def main():
     # Totals column
     with col2:
         # Calculate totals
-        mileage_total = st.session_state.expenses['mileage'] * st.session_state.expenses['mileage_rate']
-        truck_total = st.session_state.expenses['truck_days'] * st.session_state.expenses['truck_rate']
         materials_total = st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup'])
         
         # Display totals with consistent formatting
-        st.text(f"Mileage Total: ${mileage_total:.2f}")
-        st.text(f"Truck Total: ${truck_total:.2f}")
         st.text(f"Materials Total: ${materials_total:.2f}")
         
-        # Add Total Additional Expenses line
-        total_additional_costs = mileage_total + truck_total + materials_total
-        st.text(f"**Total Additional Expenses: ${total_additional_costs:.2f}**")
+        # Total global additional costs
+        total_global_additional_costs = materials_total
+        st.text(f"**Total Global Additional Costs: ${total_global_additional_costs:.2f}**")
     
-    # Calculate rental total separately for ongoing costs
-    rental_total = 0.0
-    if st.session_state.rental_rates.get('has_rentals', False):
-        rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
-
-    # Calculate total additional costs including rentals
-    total_additional_costs = mileage_total + truck_total + materials_total
-    
-    # Define labor roles
-    labor_roles = [
-        "Project Management",
-        "Senior Wastewater Consultant",
-        "Wastewater Consultant",
-        "Senior Winemaker",
-        "Winemaker",
-        "Process Engineer",
-        "Mechanical Engineer",
-        "Fabrication Specialist",
-        "Discipline Specialist",
-        "Operation/Training Technician - ST",
-        "Operation/Training Technician - OT",
-        "AI Support",
-        "Administration/Purchasing",
-        "Schedule Administration",
-        "Cost Administration"
-    ]
-    
-    # Get total labor costs from session state
-    total_labor = sum(st.session_state[f"labor_{role}"]["total"] 
-                     for role in labor_roles 
-                     if f"labor_{role}" in st.session_state)
-    
-    # Calculate grand total before displaying
-    grand_total = total_additional_costs + total_labor
+    # Calculate grand totals
+    total_additional_costs = total_deliverable_additional_costs + total_global_additional_costs
     
     # Display all totals
     st.markdown("---")
+    st.markdown(f"**Total Labor Costs: ${st.session_state['total_labor_cost']:,.2f}**")
+    st.markdown(f"**Total Deliverable-Specific Additional Costs: ${total_deliverable_additional_costs:,.2f}**")
+    st.markdown(f"**Total Global Additional Costs: ${total_global_additional_costs:,.2f}**")
     st.markdown(f"**Total Additional Costs: ${total_additional_costs:,.2f}**")
-    st.markdown(f"**Total Labor Costs: ${st.session_state['total_labor_cost']:,.2f}**")  # Use the same value here
-    st.markdown(f"**Total Project Cost: ${(total_additional_costs + st.session_state['total_labor_cost']):,.2f}**")
+    st.markdown(f"**Total Project Cost: ${(st.session_state['total_labor_cost'] + total_additional_costs):,.2f}**")
 
-    # Display ongoing rentals separately if they exist
-    if st.session_state.rental_rates.get('has_rentals', False) and rental_total > 0:
-        # Group rentals by unit to show ongoing costs
-        rental_by_unit = {}
-        for item in st.session_state.rental_rates['items']:
-            if item['description'] and item['qty'] > 0 and item['rate'] > 0:
-                unit = item['unit']
-                if unit not in rental_by_unit:
-                    rental_by_unit[unit] = 0
-                rental_by_unit[unit] += item['qty'] * item['rate']
-        
-        for unit, total in rental_by_unit.items():
-            st.markdown(f"**Ongoing Rentals: ${total:,.2f} per {unit}**")
-
-    # Title and Risk of Loss Conditional
-    st.markdown("---")
-    st.subheader("Title and Risk of Loss")
-    has_title_terms = st.radio("Any change to Title and Risk of Loss?", ["No", "Yes"], key="has_title_terms")
-    if has_title_terms == "Yes":
-        title_terms = st.text_area("Please enter Title and Risk of Loss terms:", key="title_terms_text")
-        if title_terms:
-            st.session_state.title_terms = title_terms
-
-    # Schedule Attachments
-    st.markdown("---")
-    st.subheader("Schedule Attachments")
-    st.markdown("Please attach any schedule files, Word docs only (DOCX format):")
-
-    col1, _ = st.columns([2, 2])  # Creates two columns but only uses the first one
-    with col1:
-        uploaded_files = st.file_uploader("Upload Schedules", 
-                                        accept_multiple_files=True,
-                                        type=['docx'])
-
-    if uploaded_files:
-        st.session_state.attached_schedules = uploaded_files
-
-    # Single button for Record of Entries
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        if st.button("Create Entries Record"):
-            try:
-                entries_doc = create_entries_record()
-                if entries_doc is not None:
-                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                    st.download_button(
-                        label="Download Entries Record",
-                        data=entries_doc,
-                        file_name=f"sow_entries_record_{timestamp}.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                        help="Download a record of all entries",
-                        key=f"entries_download_{timestamp}"
-                    )
-                    # Clean up
-                    entries_doc.close()
-            except Exception as e:
-                st.error(f"Error creating entries record: {str(e)}")
-
-    # Generate SOW Button
-    if 'generating_sow' not in st.session_state:
-        st.session_state.generating_sow = False
-
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        if st.button("Generate SOW", 
-                    type="primary", 
-                    key="generate_sow",
-                    disabled=st.session_state.generating_sow):
-            st.session_state.generating_sow = True
-            try:
-                start_sow_generation()
-            except Exception as e:
-                st.error(f"Error generating SOW: {str(e)}")
-            finally:
-                st.session_state.generating_sow = False
-
-    # Show spinner in second column while generating
-    with col2:
-        if st.session_state.generating_sow:
-            st.spinner("Generating SOW...")
-
-    if st.session_state.get('sow_generation_started'):
-        if 'sow_result' in st.session_state:
-            if st.session_state.sow_result['status'] == 'success':
-                st.success("SOW Generated Successfully!")
-                st.session_state.generated_content = st.session_state.sow_result['content']
-                st.session_state.sow_generation_started = False
-                st.session_state.generating_sow = False
-            elif st.session_state.sow_result['status'] == 'error':
-                st.error(f"Error generating SOW: {st.session_state.sow_result['error']}")
-                st.session_state.sow_generation_started = False
-                st.session_state.generating_sow = False
-
-    # Display Generated Content
-    if st.session_state.get('generated_content'):
-        st.subheader("Generated Statement of Work:")
-        st.info(st.session_state.generated_content)
-        st.markdown("---")
-
-        try:
-            document = create_document(st.session_state.generated_content, "DOCX")
-            entries_document = create_entries_record()
-            
-            if document is not None and entries_document is not None:
-                timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-                client_name = st.session_state.questions['client']["answer"].strip().replace(" ", "_")
-                
-                # Create filenames
-                sow_filename = f"sow_{client_name}_{timestamp}.docx"
-                entries_filename = f"entries_{client_name}_{timestamp}.docx"
-                
-                # Only save files to Cloud Storage once
-                if not st.session_state.get("sow_uploaded", False):
-                    save_to_gcloud_bucket(document, sow_filename)
-                    save_to_gcloud_bucket(entries_document, entries_filename)
-                    st.session_state.sow_uploaded = True
-
-                # Provide download button to download the SOW locally only
-                st.download_button(
-                    label="Download Statement of Work",
-                    data=document,
-                    file_name=sow_filename,
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    help="Download Statement of Work document",
-                    key=f"sow_download_{int(time.time())}"
-                )
-        except Exception as e:
-            st.error(f"Error processing documents: {str(e)}")
-
-    if "audio_data" not in st.session_state:
-        st.session_state.audio_data = None
-
-    # Create a placeholder for the transcription
-    transcription_placeholder = st.empty()
-
-    # Handle the audio data when received
-    if st.session_state.audio_data:
-        transcription = handle_audio_data(st.session_state.audio_data)
-        if transcription:
-            transcription_placeholder.write(f"Transcription: {transcription}")
-        st.session_state.audio_data = None  # Clear the audio data
-
-def save_to_gcloud_bucket(file_buffer, filename, bucket_name="docxdownloads"):
-    """Save a file to Google Cloud Storage bucket"""
-    try:
-        # Remove the "Attempting" message
-        os.environ["GOOGLE_CLOUD_PROJECT"] = "recovered-water-solutions"
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(filename)
-        
-        file_buffer.seek(0)
-        blob.upload_from_file(file_buffer)
-        # Remove the success message
-        return True
-    except Exception as e:
-        st.error(f"Error saving to Cloud Storage: {str(e)}")
-        return False
-
-def test_bucket_access():
-    """Test access to cloud storage bucket, but don't block app if unavailable since audio is disabled."""
-    try:
-        storage_client = storage.Client()
-        bucket = storage_client.bucket("docxdownloads")
-        blobs = list(bucket.list_blobs())
-        return True
-    except Exception as e:
-        # Just log the error but don't block the app
-        print(f"Note: Cloud storage not available - {str(e)}")
-        return True  # Return True anyway since we don't need cloud storage for basic functionality
-
-def add_deliverables_form():
-    with st.form("deliverables_form"):
-        st.write("Add Project Deliverables")
-        
-        if 'deliverables' not in st.session_state:
-            st.session_state.deliverables = []
-            
-        deliverable_name = st.text_input("Deliverable Name")
-        deliverable_date = st.date_input("Expected Completion Date")
-        
-        if st.form_submit_button("Add Deliverable"):
-            st.session_state.deliverables.append({
-                "name": deliverable_name,
-                "date": deliverable_date.strftime('%B %d, %Y')
-            })
-            st.success("Deliverable added!")
-
-    # Display current deliverables
-    if st.session_state.deliverables:
-        st.write("Current Deliverables:")
-        for d in st.session_state.deliverables:
-            st.write(f"- {d['name']}: {d['date']}")
-
-def upload_to_gcs(file_path, bucket_name, destination_blob_name):
-    """Upload a file to Google Cloud Storage."""
-    if os.getenv("ENABLE_CLOUD_STORAGE", "false").lower() != "true":
-        return False
-        
-    try:
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(destination_blob_name)
-        blob.upload_from_filename(file_path)
-        return True
-    except Exception as e:
-        print(f"Note: Cloud storage upload skipped - {str(e)}")
-        return False
-
-def download_from_gcs(bucket_name, source_blob_name, destination_file_name):
-    """Download a file from Google Cloud Storage."""
-    if os.getenv("ENABLE_CLOUD_STORAGE", "false").lower() != "true":
-        return False
-        
-    try:
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(source_blob_name)
-        blob.download_to_filename(destination_file_name)
-        return True
-    except Exception as e:
-        print(f"Note: Cloud storage download skipped - {str(e)}")
-        return False
-
-if __name__ == "__main__":
-    import sys
-    # Check if running directly with Python
-    if not sys.argv[0].endswith('streamlit'):
-        if len(sys.argv) > 1 and sys.argv[1] == "--init-vectorstore":
-            print("Initializing vectorstore...")
-            initialize_vectorstore()
-            sys.exit(0)
-    
-    # Normal Streamlit operation
-    port = int(os.environ.get("PORT", 8080))
-    main()
