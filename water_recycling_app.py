@@ -1972,9 +1972,6 @@ def generate_section_9():
     return f"\n**7. List of attached SOW Schedules**\n\nNone"
 
 def main():
-    # Emergency debug message to see if app starts
-    st.error("🚨 DEBUG: App is starting - if you see this, the app is loading!")
-    
     # Define CSS for styling
     st.markdown(
         """
@@ -2351,9 +2348,6 @@ def main():
             # Show individual total for the deliverable
             st.markdown(f"**Total Cost for Deliverable {i + 1}: ${total_deliverable_cost:,.2f}**")
 
-        # TEST: This should be visible if our changes are working
-        st.success("✅ TEST: Code changes are working! Additional Costs section should appear below.")
-        
         # Additional Costs section for this deliverable
         with st.expander(f"Additional Costs - Deliverable {i + 1}"):
             # Initialize additional costs in deliverable if not present
@@ -2629,34 +2623,40 @@ def main():
     st.markdown(f"**Total Additional Costs: ${total_additional_costs:,.2f}**")
     st.markdown(f"**Total Project Cost: ${(st.session_state['total_labor_cost'] + total_additional_costs):,.2f}**")
 
-    # SOW Generation Section
+    # Additional options section (moved before SOW generation)
+    st.markdown("---")
+    st.subheader("Additional Options")
+    
+    # Additional Terms
+    st.markdown("**Additional Terms & Conditions (Optional)**")
+    additional_terms = st.text_area(
+        "Enter any additional terms and conditions:",
+        value=getattr(st.session_state, 'additional_terms', ''),
+        height=100,
+        help="These will be added to Section 6 of the SOW"
+    )
+    st.session_state.additional_terms = additional_terms
+    
+    # File attachments
+    st.markdown("**Attach SOW Schedules (Optional)**")
+    uploaded_files = st.file_uploader(
+        "Upload schedules to attach to the SOW:",
+        accept_multiple_files=True,
+        type=['pdf', 'docx', 'doc'],
+        help="These files will be referenced in Section 7 of the SOW"
+    )
+    if uploaded_files:
+        st.session_state.attached_schedules = uploaded_files
+        st.success(f"✅ {len(uploaded_files)} file(s) attached")
+
+    # SOW Generation Section (moved to bottom)
     st.markdown("---")
     st.subheader("Generate Statement of Work")
     
-    # Show validation warnings if required fields are missing
-    validation_errors = []
-    if not st.session_state.questions['client']["answer"].strip():
-        validation_errors.append("Client name is required")
-    if not st.session_state.client_address.strip():
-        validation_errors.append("Client address is required")
-    
-    # Check if any deliverables have descriptions
-    has_deliverables = any(
-        deliverable.get('description', '').strip() 
-        for deliverable in st.session_state.deliverables.values()
-    )
-    if not has_deliverables:
-        validation_errors.append("At least one deliverable with a description is required")
-    
-    if validation_errors:
-        st.warning("Please complete the following before generating SOW:")
-        for error in validation_errors:
-            st.write(f"• {error}")
-    
-    # Generate SOW button
+    # Generate SOW button (always enabled)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("🚀 Generate Statement of Work", disabled=bool(validation_errors), type="primary"):
+        if st.button("🚀 Generate Statement of Work", type="primary"):
             start_sow_generation()
     
     # Display generated SOW or status
@@ -2704,32 +2704,6 @@ def main():
         
         elif st.session_state.sow_result['status'] == 'error':
             st.error(f"❌ Error generating SOW: {st.session_state.sow_result['error']}")
-    
-    # Additional options
-    st.markdown("---")
-    st.subheader("Additional Options")
-    
-    # Additional Terms
-    st.markdown("**Additional Terms & Conditions (Optional)**")
-    additional_terms = st.text_area(
-        "Enter any additional terms and conditions:",
-        value=getattr(st.session_state, 'additional_terms', ''),
-        height=100,
-        help="These will be added to Section 6 of the SOW"
-    )
-    st.session_state.additional_terms = additional_terms
-    
-    # File attachments
-    st.markdown("**Attach SOW Schedules (Optional)**")
-    uploaded_files = st.file_uploader(
-        "Upload schedules to attach to the SOW:",
-        accept_multiple_files=True,
-        type=['pdf', 'docx', 'doc'],
-        help="These files will be referenced in Section 7 of the SOW"
-    )
-    if uploaded_files:
-        st.session_state.attached_schedules = uploaded_files
-        st.success(f"✅ {len(uploaded_files)} file(s) attached")
     
     # Footer
     st.markdown("---")
