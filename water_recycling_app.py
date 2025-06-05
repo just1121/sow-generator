@@ -2654,10 +2654,8 @@ def main():
     st.subheader("Generate Statement of Work")
     
     # Generate SOW button (always enabled)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("🚀 Generate Statement of Work", type="primary"):
-            start_sow_generation()
+    if st.button("Generate Statement of Work", type="primary"):
+        start_sow_generation()
     
     # Display generated SOW or status
     if 'sow_result' in st.session_state:
@@ -2704,11 +2702,6 @@ def main():
         
         elif st.session_state.sow_result['status'] == 'error':
             st.error(f"❌ Error generating SOW: {st.session_state.sow_result['error']}")
-    
-    # Footer
-    st.markdown("---")
-    st.markdown("**Recovered Water Solutions - Statement of Work Generator**")
-    st.markdown("*For technical support, please contact your system administrator.*")
 
 # Call the main function when the script is run
 if __name__ == "__main__":
