@@ -2638,11 +2638,15 @@ def main():
     # Display generated SOW or status
     if 'sow_result' in st.session_state:
         if st.session_state.sow_result['status'] == 'success':
-            st.success("✅ Statement of Work generated successfully!")
+            # Display generated content in green background
+            st.markdown("""
+            <div style="background-color: #d4edda; padding: 20px; border-radius: 10px; border: 1px solid #c3e6cb; margin: 20px 0;">
+            """, unsafe_allow_html=True)
             
-            # Display generated content
             st.subheader("Generated Statement of Work")
             st.markdown(st.session_state.sow_result['content'])
+            
+            st.markdown("</div>", unsafe_allow_html=True)
             
             # Download buttons
             st.subheader("Download Documents")
