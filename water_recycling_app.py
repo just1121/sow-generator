@@ -436,7 +436,13 @@ def create_document(content, file_format):
                             
                             # Travel
                             if additional_costs.get('travel', {}).get('enabled', False):
-                                total_deliverable_additional_costs += additional_costs['travel']['amount']
+                                travel_data = additional_costs['travel']
+                                if 'items' in travel_data:
+                                    # New format with multiple items
+                                    total_deliverable_additional_costs += sum(item.get('amount', 0) for item in travel_data['items'])
+                                else:
+                                    # Old format compatibility
+                                    total_deliverable_additional_costs += travel_data.get('amount', 0)
                     
                     # Calculate global additional costs (materials only)
                     expenses = st.session_state.expenses
@@ -565,13 +571,28 @@ def create_document(content, file_format):
                                     
                                     # Travel
                                     if additional_costs.get('travel', {}).get('enabled', False):
-                                        amount = additional_costs['travel']['amount']
-                                        desc = additional_costs['travel']['description']
-                                        row_cells = add_table.add_row().cells
-                                        row_cells[0].text = 'Travel'
-                                        row_cells[1].text = desc
-                                        row_cells[2].text = f"${amount:,.2f}"
-                                        deliverable_additional_total += amount
+                                        travel_data = additional_costs['travel']
+                                        if 'items' in travel_data:
+                                            # New format with multiple items
+                                            for item in travel_data['items']:
+                                                amount = item.get('amount', 0)
+                                                desc = item.get('description', '')
+                                                if amount > 0 or desc:
+                                                    row_cells = add_table.add_row().cells
+                                                    row_cells[0].text = 'Travel'
+                                                    row_cells[1].text = desc
+                                                    row_cells[2].text = f"${amount:,.2f}"
+                                                    deliverable_additional_total += amount
+                                        else:
+                                            # Old format compatibility
+                                            amount = travel_data.get('amount', 0)
+                                            desc = travel_data.get('description', '')
+                                            if amount > 0 or desc:
+                                                row_cells = add_table.add_row().cells
+                                                row_cells[0].text = 'Travel'
+                                                row_cells[1].text = desc
+                                                row_cells[2].text = f"${amount:,.2f}"
+                                                deliverable_additional_total += amount
                                     
                                     if deliverable_additional_total > 0:
                                         doc.add_paragraph()  # Add space before total
@@ -2685,7 +2706,13 @@ def main():
                 
                 # Travel
                 if additional_costs.get('travel', {}).get('enabled', False):
-                    total_deliverable_additional_costs += additional_costs['travel']['amount']
+                    travel_data = additional_costs['travel']
+                    if 'items' in travel_data:
+                        # New format with multiple items
+                        total_deliverable_additional_costs += sum(item.get('amount', 0) for item in travel_data['items'])
+                    else:
+                        # Old format compatibility
+                        total_deliverable_additional_costs += travel_data.get('amount', 0)
     
     # Global additional costs (materials only now)
     st.markdown("**Global Additional Costs**")
