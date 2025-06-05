@@ -1972,6 +1972,9 @@ def generate_section_9():
     return f"\n**7. List of attached SOW Schedules**\n\nNone"
 
 def main():
+    # Emergency debug message to see if app starts
+    st.error("🚨 DEBUG: App is starting - if you see this, the app is loading!")
+    
     # Define CSS for styling
     st.markdown(
         """
