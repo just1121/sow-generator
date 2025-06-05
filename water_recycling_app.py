@@ -2632,3 +2632,7 @@ def main():
     st.markdown(f"**Total Additional Costs: ${total_additional_costs:,.2f}**")
     st.markdown(f"**Total Project Cost: ${(st.session_state['total_labor_cost'] + total_additional_costs):,.2f}**")
 
+# Call the main function when the script is run
+if __name__ == "__main__":
+    main()
+
