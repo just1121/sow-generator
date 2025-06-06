@@ -2983,57 +2983,7 @@ def main():
     total_additional_costs = total_deliverable_additional_costs + total_project_wide_additional_costs
     grand_total = st.session_state['total_labor_cost'] + total_additional_costs
     
-    # Final Project Totals Section
-    st.markdown("---")
-    st.subheader("💰 Final Project Totals")
-    
-    # Create summary table
-    col1, col2, col3 = st.columns([2, 1, 1])
-    
-    with col1:
-        st.markdown("**Category**")
-        st.markdown("Total Labor Costs")
-        st.markdown("Total Deliverable Additional Costs")
-        st.markdown("Total Project-Wide Additional Costs")
-        st.markdown("---")
-        st.markdown("**GRAND TOTAL**")
-    
-    with col2:
-        st.markdown("**Amount**")
-        st.markdown(f"${st.session_state['total_labor_cost']:,.2f}")
-        st.markdown(f"${total_deliverable_additional_costs:,.2f}")
-        st.markdown(f"${total_project_wide_additional_costs:,.2f}")
-        st.markdown("---")
-        st.markdown(f"**${grand_total:,.2f}**")
-    
-    with col3:
-        st.markdown("**Percentage**")
-        labor_pct = (st.session_state['total_labor_cost'] / grand_total * 100) if grand_total > 0 else 0
-        del_add_pct = (total_deliverable_additional_costs / grand_total * 100) if grand_total > 0 else 0
-        proj_add_pct = (total_project_wide_additional_costs / grand_total * 100) if grand_total > 0 else 0
-        
-        st.markdown(f"{labor_pct:.1f}%")
-        st.markdown(f"{del_add_pct:.1f}%")
-        st.markdown(f"{proj_add_pct:.1f}%")
-        st.markdown("---")
-        st.markdown("**100.0%**")
-    
-    # Visual summary
-    if grand_total > 0:
-        st.markdown("**Cost Distribution:**")
-        st.markdown(f"""
-        <div style="display: flex; width: 100%; height: 30px; border-radius: 15px; overflow: hidden; margin: 15px 0; border: 2px solid #ddd;">
-            <div style="background-color: #4CAF50; width: {labor_pct}%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
-                Labor ({labor_pct:.1f}%)
-            </div>
-            <div style="background-color: #FF9800; width: {del_add_pct}%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
-                {'Del. Add.' if del_add_pct > 15 else ''}
-            </div>
-            <div style="background-color: #2196F3; width: {proj_add_pct}%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
-                {'Proj. Add.' if proj_add_pct > 15 else ''}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+
 
     # SOW options section (moved before SOW generation)
     st.markdown("---")
@@ -3081,10 +3031,8 @@ def main():
     # Display generated SOW or status
     if 'sow_result' in st.session_state:
         if st.session_state.sow_result['status'] == 'success':
-            # Display generated content with enhanced visual styling - all in one block
-            sow_content = st.session_state.sow_result['content'].replace('\n', '<br>')
-            
-            st.markdown(f"""
+            # Display generated content with enhanced visual styling
+            st.markdown("""
             <div style="
                 background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
                 padding: 30px; 
@@ -3104,11 +3052,14 @@ def main():
                 border-radius: 15px 15px 0 0;
             "></div>
             <h3 style="margin-top: 10px;">📄 Generated Statement of Work</h3>
-            <div style="margin-top: 20px; line-height: 1.6;">
-                {sow_content}
-            </div>
             </div>
             """, unsafe_allow_html=True)
+            
+            # Display the content inside the styled container using a container
+            with st.container():
+                st.markdown('<div style="margin: -20px 30px 30px 30px;">', unsafe_allow_html=True)
+                st.markdown(st.session_state.sow_result['content'])
+                st.markdown('</div>', unsafe_allow_html=True)
             
             # Download buttons
             st.subheader("Download Documents")
