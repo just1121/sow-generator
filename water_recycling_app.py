@@ -1483,11 +1483,13 @@ def generate_sow():  # no longer async
                 if deliverable.get('description'):
                     # Start with deliverable description and target date
                     target_date = deliverable.get('target_date')
+                    # Clean description to ensure proper markdown formatting
+                    clean_description = deliverable.get('description', '').strip()
                     if target_date:
                         date_str = target_date.strftime('%B %d, %Y')
-                        deliverable_text = f"**Deliverable {deliverable_index}: {deliverable.get('description')}** - Target: {date_str}\n"
+                        deliverable_text = f"**Deliverable {deliverable_index}: {clean_description}** - Target completion date: {date_str}\n"
                     else:
-                        deliverable_text = f"**Deliverable {deliverable_index}: {deliverable.get('description')}** - Target: (No date provided)\n"
+                        deliverable_text = f"**Deliverable {deliverable_index}: {clean_description}** - Target completion date: (No date provided)\n"
                     
                     # Add milestone information if exists
                     if 'milestones' in deliverable and any(m.get('description') for m in deliverable['milestones']):
@@ -2128,19 +2130,73 @@ def generate_section_5_costs():
                 total_deliverable_all_costs = del_total
                 section += f"**Total Costs (Labor + Additional) for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
     
-    # Add project-wide additional costs if any
+    # Add materials costs if any (remove "Project-Wide" label)
     if materials_total > 0:
-        section += "\n**Project-Wide Additional Costs**\n\n"
+        section += "\n**Materials**\n\n"
         section += "| Cost Type | Details | Amount |\n"
         section += "|-----------|---------|--------|\n"
         section += f"| Materials | Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup | ${materials_total:,.2f} |\n"
-        section += f"\n**Total Project-Wide Additional Costs: ${materials_total:,.2f}**\n\n"
+        section += f"\n**Total Materials: ${materials_total:,.2f}**\n\n"
     
-    # Add simple project totals
+    # Add detailed project totals breakdown
     section += "\n**Project Totals**\n\n"
-    section += f"Total Labor Costs: ${total_labor_cost:,.2f}\n\n"
-    if total_additional_costs > 0:
-        section += f"Total Additional Costs: ${total_additional_costs:,.2f}\n\n"
+    
+    # Labor costs breakdown by deliverable
+    section += "**Labor Costs by Deliverable:**\n\n"
+    for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
+        if isinstance(deliverable.get('labor_costs'), dict):
+            del_labor_total = sum(details['total'] for details in deliverable['labor_costs'].values() 
+                                if isinstance(details, dict))
+            if del_labor_total > 0:
+                section += f"- Deliverable {i}: ${del_labor_total:,.2f}\n"
+    section += f"\n**Total Labor Costs: ${total_labor_cost:,.2f}**\n\n"
+    
+    # Additional costs breakdown by deliverable
+    if total_deliverable_additional_costs > 0 or materials_total > 0:
+        section += "**Additional Costs by Deliverable:**\n\n"
+        for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
+            deliverable_additional_cost = 0.0
+            if 'additional_costs' in deliverable:
+                additional_costs = deliverable['additional_costs']
+                
+                # Equipment rentals
+                if additional_costs.get('equipment_rentals', {}).get('enabled', False):
+                    equipment_rentals = additional_costs['equipment_rentals']
+                    if 'items' in equipment_rentals:
+                        for item in equipment_rentals['items']:
+                            if 'weeks' in item and 'rate_per_week' in item:
+                                deliverable_additional_cost += item.get('weeks', 1) * item.get('rate_per_week', 0)
+                            else:
+                                deliverable_additional_cost += item.get('amount', 0)
+                    else:
+                        deliverable_additional_cost += equipment_rentals.get('amount', 0)
+                
+                # Mileage
+                if additional_costs.get('mileage', {}).get('enabled', False):
+                    deliverable_additional_cost += (additional_costs['mileage']['miles'] * 
+                                                   additional_costs['mileage']['rate'])
+                
+                # Truck days
+                if additional_costs.get('truck_days', {}).get('enabled', False):
+                    deliverable_additional_cost += (additional_costs['truck_days']['days'] * 
+                                                   additional_costs['truck_days']['rate'])
+                
+                # Travel
+                if additional_costs.get('travel', {}).get('enabled', False):
+                    travel_data = additional_costs['travel']
+                    if 'items' in travel_data:
+                        deliverable_additional_cost += sum(item.get('amount', 0) for item in travel_data['items'])
+                    else:
+                        deliverable_additional_cost += travel_data.get('amount', 0)
+            
+            if deliverable_additional_cost > 0:
+                section += f"- Deliverable {i}: ${deliverable_additional_cost:,.2f}\n"
+        
+        if materials_total > 0:
+            section += f"- Materials: ${materials_total:,.2f}\n"
+        
+        section += f"\n**Total Additional Costs: ${total_additional_costs:,.2f}**\n\n"
+    
     section += f"**Total Project Cost: ${total_project_cost:,.2f}**\n\n"
     
     return section
