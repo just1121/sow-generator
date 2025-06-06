@@ -2122,11 +2122,11 @@ def generate_section_5_costs():
                 
                 # Add total costs for this deliverable
                 total_deliverable_all_costs = del_total + deliverable_additional_total
-                section += f"**Total Costs for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
+                section += f"**Total Costs (Labor + Additional) for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
             else:
                 # No additional costs, but still show total costs
                 total_deliverable_all_costs = del_total
-                section += f"**Total Costs for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
+                section += f"**Total Costs (Labor + Additional) for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
     
     # Add project-wide additional costs if any
     if materials_total > 0:
@@ -2981,7 +2981,27 @@ def main():
     total_additional_costs = total_deliverable_additional_costs + total_project_wide_additional_costs
     grand_total = st.session_state['total_labor_cost'] + total_additional_costs
     
-
+    # Project Totals Table (simple, no icons/percentages)
+    st.markdown("---")
+    st.subheader("Project Totals")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown("**Category**")
+        st.markdown("Total Labor Costs")
+        st.markdown("Total Deliverable Additional Costs") 
+        st.markdown("Total Project-Wide Additional Costs")
+        st.markdown("---")
+        st.markdown("**GRAND TOTAL**")
+    
+    with col2:
+        st.markdown("**Amount**")
+        st.markdown(f"${st.session_state['total_labor_cost']:,.2f}")
+        st.markdown(f"${total_deliverable_additional_costs:,.2f}")
+        st.markdown(f"${total_project_wide_additional_costs:,.2f}")
+        st.markdown("---")
+        st.markdown(f"**${grand_total:,.2f}**")
 
     # SOW options section (moved before SOW generation)
     st.markdown("---")
