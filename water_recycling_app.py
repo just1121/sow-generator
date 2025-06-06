@@ -2136,14 +2136,12 @@ def generate_section_5_costs():
         section += f"| Materials | Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup | ${materials_total:,.2f} |\n"
         section += f"\n**Total Project-Wide Additional Costs: ${materials_total:,.2f}**\n\n"
     
-    # Add totals section
+    # Add simple project totals
     section += "\n**Project Totals**\n\n"
-    section += "| Category | Amount |\n"
-    section += "|----------|--------|\n"
-    section += f"| Total Labor Costs | ${total_labor_cost:,.2f} |\n"
-    if materials_total > 0:
-        section += f"| Total Additional Costs | ${total_additional_costs:,.2f} |\n"
-    section += f"| **Total Project Cost** | **${total_project_cost:,.2f}** |\n"
+    section += f"Total Labor Costs: ${total_labor_cost:,.2f}\n\n"
+    if total_additional_costs > 0:
+        section += f"Total Additional Costs: ${total_additional_costs:,.2f}\n\n"
+    section += f"**Total Project Cost: ${total_project_cost:,.2f}**\n\n"
     
     return section
 
