@@ -1644,11 +1644,9 @@ Third Paragraph:
 
 def start_sow_generation():
     """Non-blocking function to start SOW generation"""
-    if not st.session_state.get('sow_generation_started', False):
-        st.session_state.sow_generation_started = True
-        # Clear any previous generated content to prevent showing old cached text
-        st.session_state.generated_content = None
-        generate_sow()  # Removed asyncio.run() since function is no longer async
+    # Clear any previous generated content to prevent showing old cached text
+    st.session_state.generated_content = None
+    generate_sow()  # Generate SOW on every button click
 
 def create_entries_record():
     def format_table(table):
