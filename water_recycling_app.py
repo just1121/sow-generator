@@ -1646,6 +1646,9 @@ def start_sow_generation():
     """Non-blocking function to start SOW generation"""
     # Clear any previous generated content to prevent showing old cached text
     st.session_state.generated_content = None
+    # Also clear any previous SOW results
+    if 'sow_result' in st.session_state:
+        del st.session_state.sow_result
     generate_sow()  # Generate SOW on every button click
 
 def create_entries_record():
@@ -3098,6 +3101,9 @@ def main():
     
     # Generate SOW button (always enabled)
     if st.button("Generate Statement of Work", type="primary"):
+        # Clear any previous results to force regeneration
+        if 'sow_result' in st.session_state:
+            del st.session_state.sow_result
         start_sow_generation()
     
     # Display generated SOW or status
