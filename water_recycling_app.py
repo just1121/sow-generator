@@ -2891,14 +2891,9 @@ def main():
         "additional_statements"
     )
 
-    # Project Summary with organized deliverable breakdown
-    st.markdown("---")
-    st.subheader("📊 Project Summary by Deliverable")
-    
-    # Reset total labor cost before calculating
+    # Calculate totals (without displaying summaries)
     st.session_state['total_labor_cost'] = 0.0
     total_deliverable_additional_costs = 0.0
-    deliverable_summaries = []
     
     # Calculate costs for each deliverable
     for i in range(num_deliverables):
@@ -2950,49 +2945,6 @@ def main():
                         deliverable_additional_cost += travel_data.get('amount', 0)
             
             total_deliverable_additional_costs += deliverable_additional_cost
-            
-            # Store summary for this deliverable
-            deliverable_total_cost = deliverable_labor_cost + deliverable_additional_cost
-            deliverable_summaries.append({
-                'number': i + 1,
-                'description': deliverable.get('description', 'No description'),
-                'labor_cost': deliverable_labor_cost,
-                'additional_cost': deliverable_additional_cost,
-                'total_cost': deliverable_total_cost
-            })
-    
-    # Display deliverable summaries in organized format
-    for summary in deliverable_summaries:
-        with st.container():
-            st.markdown(f"### 📋 Deliverable {summary['number']}: {summary['description']}")
-            
-            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
-            with col1:
-                st.markdown("**Cost Breakdown:**")
-            with col2:
-                st.markdown(f"**Labor:** ${summary['labor_cost']:,.2f}")
-            with col3:
-                st.markdown(f"**Additional:** ${summary['additional_cost']:,.2f}")
-            with col4:
-                st.markdown(f"**🎯 Total:** ${summary['total_cost']:,.2f}")
-            
-            # Progress bar visualization
-            if summary['total_cost'] > 0:
-                labor_percentage = (summary['labor_cost'] / summary['total_cost']) * 100
-                additional_percentage = (summary['additional_cost'] / summary['total_cost']) * 100
-                
-                st.markdown(f"""
-                <div style="display: flex; width: 100%; height: 20px; border-radius: 10px; overflow: hidden; margin: 10px 0;">
-                    <div style="background-color: #4CAF50; width: {labor_percentage}%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">
-                        {'Labor' if labor_percentage > 20 else ''}
-                    </div>
-                    <div style="background-color: #FF9800; width: {additional_percentage}%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;">
-                        {'Additional' if additional_percentage > 20 else ''}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.markdown("---")
     
     # Project-wide additional costs (materials only)
     st.markdown("**Project-Wide Additional Costs**")
@@ -3129,8 +3081,10 @@ def main():
     # Display generated SOW or status
     if 'sow_result' in st.session_state:
         if st.session_state.sow_result['status'] == 'success':
-            # Display generated content with enhanced visual styling
-            st.markdown("""
+            # Display generated content with enhanced visual styling - all in one block
+            sow_content = st.session_state.sow_result['content'].replace('\n', '<br>')
+            
+            st.markdown(f"""
             <div style="
                 background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
                 padding: 30px; 
@@ -3149,12 +3103,12 @@ def main():
                 background: linear-gradient(90deg, #007BFF, #0056b3, #007BFF);
                 border-radius: 15px 15px 0 0;
             "></div>
+            <h3 style="margin-top: 10px;">📄 Generated Statement of Work</h3>
+            <div style="margin-top: 20px; line-height: 1.6;">
+                {sow_content}
+            </div>
+            </div>
             """, unsafe_allow_html=True)
-            
-            st.markdown("### 📄 Generated Statement of Work")
-            st.markdown(st.session_state.sow_result['content'])
-            
-            st.markdown("</div>", unsafe_allow_html=True)
             
             # Download buttons
             st.subheader("Download Documents")
