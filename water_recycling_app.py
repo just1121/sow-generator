@@ -2322,11 +2322,10 @@ def generate_section_5_costs():
                                 if isinstance(details, dict))
             if del_labor_total > 0:
                 section += f"- Deliverable {i}: ${del_labor_total:,.2f}\n"
-    section += f"\n**Total Labor Costs: ${total_labor_cost:,.2f}**\n\n"
     
     # Additional costs breakdown by deliverable
     if total_deliverable_additional_costs > 0 or materials_total > 0:
-        section += "**Additional Costs by Deliverable:**\n\n"
+        section += f"\n**Additional Costs by Deliverable:**\n\n"
         for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
             deliverable_additional_cost = 0.0
             if 'additional_costs' in deliverable:
@@ -2367,10 +2366,16 @@ def generate_section_5_costs():
         
         if materials_total > 0:
             section += f"- Materials: ${materials_total:,.2f}\n"
-        
-        section += f"\n**Total Additional Costs: ${total_additional_costs:,.2f}**\n\n"
     
-    section += f"**Total Project Cost: ${total_project_cost:,.2f}**\n\n"
+    # Project Summary Table
+    section += f"\n**Project Summary:**\n\n"
+    section += "| Category | Amount |\n"
+    section += "|----------|--------|\n"
+    section += f"| Total Labor Costs | ${total_labor_cost:,.2f} |\n"
+    if materials_total > 0:
+        section += f"| Materials | ${materials_total:,.2f} |\n"
+    section += f"| Total Additional Costs | ${total_additional_costs:,.2f} |\n"
+    section += f"| **Total Project Cost** | **${total_project_cost:,.2f}** |\n\n"
     
     return section
 
@@ -2445,23 +2450,6 @@ def main():
         st.markdown("<h1 style='text-align: center;'>Statement of Work Generator</h1>", unsafe_allow_html=True)
 
     st.markdown("---")
-    
-    # Debug/Reset section
-    with st.expander("🔧 Debug & Reset"):
-        if st.button("Clear All Data and Start Fresh", type="secondary"):
-            # Clear all session state
-            for key in list(st.session_state.keys()):
-                if key not in ['test_mode']:  # Keep test_mode if it exists
-                    del st.session_state[key]
-            st.success("All data cleared! Please refresh the page.")
-            st.rerun()
-        
-        st.write("Current equipment rental structure:")
-        for i in range(st.session_state.get('deliverables_count', 1)):
-            deliverable_key = f"deliverable_{i+1}"
-            if deliverable_key in st.session_state.get('deliverables', {}):
-                equipment_data = st.session_state.deliverables[deliverable_key].get('additional_costs', {}).get('equipment_rentals', {})
-                st.write(f"Deliverable {i+1}: {equipment_data}")
     
     # Only show audio input option if both speech and audio recorder are available
     if speech_available and audio_recorder_available:
