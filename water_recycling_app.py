@@ -748,7 +748,7 @@ def create_document(content, file_format):
                     
                     if total_additional_costs > 0:
                         row_cells = table.add_row().cells
-                        row_cells[0].text = 'Total Additional Costs'
+                        row_cells[0].text = 'Total Additional Project Expenses'
                         row_cells[1].text = f'${total_additional_costs:,.2f}'
                     
                     row_cells = table.add_row().cells
@@ -813,9 +813,9 @@ def create_document(content, file_format):
                             target_date = deliverable.get('target_date')
                             if target_date:
                                 date_str = target_date.strftime('%B %d, %Y')
-                                deliverable_text = f"Deliverable {i}: {deliverable['description']} - Target: {date_str}"
+                                deliverable_text = f"Deliverable {i}: {deliverable['description']} - Target completion date: {date_str}"
                             else:
-                                deliverable_text = f"Deliverable {i}: {deliverable['description']} - Target: (No date provided)"
+                                deliverable_text = f"Deliverable {i}: {deliverable['description']} - Target completion date: (No date provided)"
                             
                             p_del_text = doc.add_paragraph()
                             add_markdown_runs(p_del_text, deliverable_text, apply_base_body_style)
@@ -903,16 +903,23 @@ def create_document(content, file_format):
                     p_narrative = doc.add_paragraph()
                     add_markdown_runs(p_narrative, narrative, apply_base_body_style)
                     
-                    # Add deliverable labor cost tables
+                    # Add deliverable labor cost tables and their additional costs
+                    deliverable_totals = []  # Track total costs for each deliverable
                     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                         if isinstance(deliverable.get('labor_costs'), dict):
+                            # Deliverable Header
                             p_del_header = doc.add_paragraph()
-                            run_del_header = p_del_header.add_run(f"Deliverable {i}") # Description is part of the header here
+                            run_del_header = p_del_header.add_run(f"Deliverable {i}: {deliverable.get('description', '')}")
                             apply_base_heading_style(run_del_header)
                             run_del_header.bold = True
-                            p_del_desc = doc.add_paragraph() # Separate paragraph for description if needed, or combine
-                            add_markdown_runs(p_del_desc, f"Description: {deliverable.get('description', '')}", apply_base_body_style)
-                            
+
+                            # LABOR COSTS TABLE
+                            p_labor_subheader = doc.add_paragraph()
+                            run_labor_subheader = p_labor_subheader.add_run("Labor Costs")
+                            apply_base_heading_style(run_labor_subheader)
+                            run_labor_subheader.bold = True
+                            run_labor_subheader.underline = True
+
                             table = doc.add_table(rows=1, cols=5)
                             format_table(table)
                             header_cells = table.rows[0].cells
@@ -923,6 +930,7 @@ def create_document(content, file_format):
                             header_cells[4].paragraphs[0].add_run('Subtotal').bold = True
                             
                             has_labor_entries = False
+                            total_deliverable_labor_cost = 0.0
                             for role, details in deliverable['labor_costs'].items():
                                 if isinstance(details, dict) and details.get('hours', 0) > 0:
                                     has_labor_entries = True
@@ -932,15 +940,179 @@ def create_document(content, file_format):
                                     row_cells[2].text = f"${details['rate']:.2f}/hr"
                                     row_cells[3].text = f"{details['hours']:.2f}"
                                     row_cells[4].text = f"${details['total']:,.2f}"
+                                    total_deliverable_labor_cost += details['total']
                             
-                            if has_labor_entries:
-                                total_deliverable_cost = sum(details['total'] for details in deliverable['labor_costs'].values() 
-                                                              if isinstance(details, dict))
-                                doc.add_paragraph()  # Add space before total
-                                p = doc.add_paragraph()
-                                p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                                p.add_run("Total Labor Cost for Deliverable: ")
-                                p.add_run(f"${total_deliverable_cost:,.2f}").bold = True
+                            if not has_labor_entries:
+                                # Add a row indicating no labor costs
+                                row_cells = table.add_row().cells
+                                row_cells[0].text = "No labor costs assigned"
+                                row_cells[1].text = ""
+                                row_cells[2].text = ""
+                                row_cells[3].text = ""
+                                row_cells[4].text = "$0.00"
+
+                            # Labor subtotal
+                            doc.add_paragraph()  # Add space
+                            p_labor_total = doc.add_paragraph()
+                            p_labor_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                            p_labor_total.add_run("Labor Subtotal: ")
+                            p_labor_total.add_run(f"${total_deliverable_labor_cost:,.2f}").bold = True
+                            
+                            # ADDITIONAL COSTS TABLE
+                            deliverable_additional_total = 0.0
+                            has_additional_costs = False
+                            
+                            # Check if deliverable has any additional costs
+                            if 'additional_costs' in deliverable:
+                                additional_costs = deliverable['additional_costs']
+                                has_additional_costs = (
+                                    additional_costs.get('equipment_rentals', {}).get('enabled', False) or
+                                    additional_costs.get('mileage', {}).get('enabled', False) or
+                                    additional_costs.get('truck_days', {}).get('enabled', False) or
+                                    additional_costs.get('travel', {}).get('enabled', False)
+                                )
+                            
+                            # Always show Additional Costs section
+                            doc.add_paragraph()  # Add space
+                            p_add_subheader = doc.add_paragraph()
+                            run_add_subheader = p_add_subheader.add_run("Additional Costs")
+                            apply_base_heading_style(run_add_subheader)
+                            run_add_subheader.bold = True
+                            run_add_subheader.underline = True
+                            
+                            add_table = doc.add_table(rows=1, cols=3)
+                            format_table(add_table)
+                            add_header_cells = add_table.rows[0].cells
+                            add_header_cells[0].paragraphs[0].add_run('Cost Type').bold = True
+                            add_header_cells[1].paragraphs[0].add_run('Description').bold = True
+                            add_header_cells[2].paragraphs[0].add_run('Amount').bold = True
+                            
+                            if has_additional_costs:
+                                # Equipment rentals
+                                if additional_costs.get('equipment_rentals', {}).get('enabled', False):
+                                    equipment_rentals = additional_costs['equipment_rentals']
+                                    if 'items' in equipment_rentals:
+                                        # New format with multiple items
+                                        for item in equipment_rentals['items']:
+                                            if 'weeks' in item and 'rate_per_week' in item:
+                                                # New weekly structure
+                                                weeks = item.get('weeks', 1)
+                                                rate_per_week = item.get('rate_per_week', 0)
+                                                amount = weeks * rate_per_week
+                                                desc = item.get('description', '')
+                                                if amount > 0 or desc:
+                                                    row_cells = add_table.add_row().cells
+                                                    row_cells[0].text = 'Equipment Rentals'
+                                                    week_text = f"week" if weeks == 1 else "weeks"
+                                                    row_cells[1].text = f"{desc} - {weeks} {week_text} @ ${rate_per_week:,.2f}/week"
+                                                    row_cells[2].text = f"${amount:,.2f}"
+                                                    deliverable_additional_total += amount
+                                            else:
+                                                # Old amount structure
+                                                amount = item.get('amount', 0)
+                                                desc = item.get('description', '')
+                                                if amount > 0 or desc:
+                                                    row_cells = add_table.add_row().cells
+                                                    row_cells[0].text = 'Equipment Rentals'
+                                                    row_cells[1].text = desc
+                                                    row_cells[2].text = f"${amount:,.2f}"
+                                                    deliverable_additional_total += amount
+                                    else:
+                                        # Old format compatibility
+                                        amount = equipment_rentals.get('amount', 0)
+                                        desc = equipment_rentals.get('description', '')
+                                        if amount > 0 or desc:
+                                            row_cells = add_table.add_row().cells
+                                            row_cells[0].text = 'Equipment Rentals'
+                                            row_cells[1].text = desc
+                                            row_cells[2].text = f"${amount:,.2f}"
+                                            deliverable_additional_total += amount
+                                
+                                # Mileage
+                                if additional_costs.get('mileage', {}).get('enabled', False):
+                                    miles = additional_costs['mileage']['miles']
+                                    rate = additional_costs['mileage']['rate']
+                                    amount = miles * rate
+                                    row_cells = add_table.add_row().cells
+                                    row_cells[0].text = 'Mileage'
+                                    row_cells[1].text = f"{miles:.1f} miles @ ${rate:.3f}/mile"
+                                    row_cells[2].text = f"${amount:,.2f}"
+                                    deliverable_additional_total += amount
+                                
+                                # Truck days
+                                if additional_costs.get('truck_days', {}).get('enabled', False):
+                                    days = additional_costs['truck_days']['days']
+                                    rate = additional_costs['truck_days']['rate']
+                                    amount = days * rate
+                                    row_cells = add_table.add_row().cells
+                                    row_cells[0].text = 'Truck Days'
+                                    row_cells[1].text = f"{days:.1f} days @ ${rate:.2f}/day"
+                                    row_cells[2].text = f"${amount:,.2f}"
+                                    deliverable_additional_total += amount
+                                
+                                # Travel
+                                if additional_costs.get('travel', {}).get('enabled', False):
+                                    travel_data = additional_costs['travel']
+                                    if 'items' in travel_data:
+                                        # New format with multiple items
+                                        for item in travel_data['items']:
+                                            amount = item.get('amount', 0)
+                                            desc = item.get('description', '')
+                                            if amount > 0 or desc:
+                                                row_cells = add_table.add_row().cells
+                                                row_cells[0].text = 'Travel'
+                                                row_cells[1].text = desc
+                                                row_cells[2].text = f"${amount:,.2f}"
+                                                deliverable_additional_total += amount
+                                    else:
+                                        # Old format compatibility
+                                        amount = travel_data.get('amount', 0)
+                                        desc = travel_data.get('description', '')
+                                        if amount > 0 or desc:
+                                            row_cells = add_table.add_row().cells
+                                            row_cells[0].text = 'Travel'
+                                            row_cells[1].text = desc
+                                            row_cells[2].text = f"${amount:,.2f}"
+                                            deliverable_additional_total += amount
+                            else:
+                                # Add a row indicating no additional costs
+                                row_cells = add_table.add_row().cells
+                                row_cells[0].text = "No additional costs"
+                                row_cells[1].text = ""
+                                row_cells[2].text = "$0.00"
+
+                            # Additional costs subtotal
+                            doc.add_paragraph()  # Add space
+                            p_add_total = doc.add_paragraph()
+                            p_add_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                            p_add_total.add_run("Additional Costs Subtotal: ")
+                            p_add_total.add_run(f"${deliverable_additional_total:,.2f}").bold = True
+                            
+                            # TOTAL COST FOR DELIVERABLE (highlighted)
+                            total_deliverable_all_costs = total_deliverable_labor_cost + deliverable_additional_total
+                            doc.add_paragraph()  # Add space
+                            p_del_total = doc.add_paragraph()
+                            p_del_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                            # Make this line more prominent
+                            run_total_label = p_del_total.add_run(f"Total Cost for Deliverable {i} (Labor + Additional): ")
+                            run_total_label.bold = True
+                            run_total_amount = p_del_total.add_run(f"${total_deliverable_all_costs:,.2f}")
+                            run_total_amount.bold = True
+                            run_total_amount.font.color.rgb = RGBColor(0, 0, 139)  # Dark blue for emphasis
+                            
+                            # Track for summary
+                            deliverable_totals.append({
+                                'number': i,
+                                'description': deliverable.get('description', ''),
+                                'labor_cost': total_deliverable_labor_cost,
+                                'additional_cost': deliverable_additional_total,
+                                'total_cost': total_deliverable_all_costs
+                            })
+                            
+                            # Add spacing after each deliverable
+                            doc.add_paragraph()
+                            doc.add_paragraph("─" * 60)  # Visual separator
+                            doc.add_paragraph()
                     
                     # Add rental costs section if there are rentals
                     if st.session_state.rental_rates.get('has_rentals', False) and rental_total > 0:
@@ -974,9 +1146,9 @@ def create_document(content, file_format):
                         p.add_run("Total Rental Costs: ")
                         p.add_run(f"${rental_total:,.2f}").bold = True
                     
-                    # Add Additional Expenses table
+                    # Add Additional Project Expenses table
                     p_exp_header = doc.add_paragraph()
-                    run_exp_header = p_exp_header.add_run("Additional Expenses")
+                    run_exp_header = p_exp_header.add_run("Additional Project Expenses")
                     apply_base_heading_style(run_exp_header)
                     run_exp_header.bold = True
                     
@@ -1027,7 +1199,7 @@ def create_document(content, file_format):
                     row_cells[1].text = f'${labor_cost:,.2f}'
                     
                     row_cells = table.add_row().cells
-                    row_cells[0].text = 'Total Additional Costs'
+                    row_cells[0].text = 'Total Additional Project Expenses'
                     row_cells[1].text = f'${additional_expenses:,.2f}'
                     
                     row_cells = table.add_row().cells
