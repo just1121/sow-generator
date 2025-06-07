@@ -2303,12 +2303,17 @@ def generate_section_5_costs():
                 total_deliverable_all_costs = del_total
                 section += f"**Total Costs (Labor + Additional) for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
     
-    # Add materials costs if any (remove "Project-Wide" label)
+    # Add materials costs if any
     if materials_total > 0:
         section += "\n**Materials**\n\n"
         section += "| Cost Type | Details | Amount |\n"
         section += "|-----------|---------|--------|\n"
-        section += f"| Materials | Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup | ${materials_total:,.2f} |\n"
+        materials_desc = expenses.get('materials_description', '')
+        if materials_desc:
+            details_text = f"{materials_desc} (Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup)"
+        else:
+            details_text = f"Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup"
+        section += f"| Materials | {details_text} | ${materials_total:,.2f} |\n"
         section += f"\n**Total Materials: ${materials_total:,.2f}**\n\n"
     
     # Add detailed project totals breakdown
@@ -2372,9 +2377,9 @@ def generate_section_5_costs():
     section += "| Category | Amount |\n"
     section += "|----------|--------|\n"
     section += f"| Total Labor Costs | ${total_labor_cost:,.2f} |\n"
-    if materials_total > 0:
-        section += f"| Materials | ${materials_total:,.2f} |\n"
     section += f"| Total Additional Costs | ${total_additional_costs:,.2f} |\n"
+    if materials_total > 0:
+        section += f"| Total Materials Costs | ${materials_total:,.2f} |\n"
     section += f"| **Total Project Cost** | **${total_project_cost:,.2f}** |\n\n"
     
     return section
@@ -3161,16 +3166,25 @@ def main():
             
             total_deliverable_additional_costs += deliverable_additional_cost
     
-    # Project-wide additional costs (materials only)
-    st.markdown("**Project-Wide Additional Costs**")
+        # Material costs
+    st.markdown("**Material Costs**")
     st.markdown("*These are project-wide costs not specific to any deliverable*")
     
     # Initialize expenses with correct rates and types
     if 'expenses' not in st.session_state:
         st.session_state.expenses = {
             'materials_cost': 0.0,       # float
-            'materials_markup': 0.25     # float
+            'materials_markup': 0.25,    # float
+            'materials_description': ''  # string
         }
+    
+    # Materials description
+    materials_description = st.text_input(
+        "Materials Description",
+        value=st.session_state.expenses.get('materials_description', ''),
+        placeholder="e.g., Pipes, fittings, chemicals, etc."
+    )
+    st.session_state.expenses['materials_description'] = materials_description
     
     col1, col2 = st.columns(2)
     with col1:
@@ -3190,9 +3204,9 @@ def main():
         # Display totals with consistent formatting
         st.text(f"Materials Total: ${materials_total:.2f}")
         
-        # Total project-wide additional costs
+        # Total material costs
         total_project_wide_additional_costs = materials_total
-        st.text(f"**Total Project-Wide Additional Costs: ${total_project_wide_additional_costs:.2f}**")
+        st.text(f"**Material Costs (project-wide): ${total_project_wide_additional_costs:.2f}**")
     
     # Calculate grand totals
     total_additional_costs = total_deliverable_additional_costs + total_project_wide_additional_costs
@@ -3208,7 +3222,7 @@ def main():
         st.markdown("**Category**")
         st.markdown("Total Labor Costs")
         st.markdown("Total Deliverable Additional Costs") 
-        st.markdown("Total Project-Wide Additional Costs")
+        st.markdown("Material Costs (project-wide)")
         st.markdown("---")
         st.markdown("**GRAND TOTAL**")
     
