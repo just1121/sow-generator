@@ -813,9 +813,9 @@ def create_document(content, file_format):
                             target_date = deliverable.get('target_date')
                             if target_date:
                                 date_str = target_date.strftime('%B %d, %Y')
-                                deliverable_text = f"Deliverable {i}: {deliverable['description']} - Target completion date: {date_str}"
+                                deliverable_text = f"Deliverable {i}: {deliverable['description']} - Target completion date: **{date_str}**"
                             else:
-                                deliverable_text = f"Deliverable {i}: {deliverable['description']} - Target completion date: (No date provided)"
+                                deliverable_text = f"Deliverable {i}: {deliverable['description']} - Target completion date: **(No date provided)**"
                             
                             p_del_text = doc.add_paragraph()
                             add_markdown_runs(p_del_text, deliverable_text, apply_base_body_style)
@@ -1181,32 +1181,7 @@ def create_document(content, file_format):
                     row_cells[1].text = ''  # Empty details column
                     row_cells[2].text = f'${additional_expenses:,.2f}'  # Amount in last column
                     
-                    # Add Project Totals table
-                    p_total_header = doc.add_paragraph()
-                    run_total_header = p_total_header.add_run("Project Totals")
-                    apply_base_heading_style(run_total_header)
-                    run_total_header.bold = True
-                    
-                    table = doc.add_table(rows=1, cols=2)
-                    format_table(table)
-                    header_cells = table.rows[0].cells
-                    header_cells[0].paragraphs[0].add_run('Category').bold = True
-                    header_cells[1].paragraphs[0].add_run('Amount').bold = True
-                    
-                    # Add rows for totals
-                    row_cells = table.add_row().cells
-                    row_cells[0].text = 'Total Labor Costs'
-                    row_cells[1].text = f'${labor_cost:,.2f}'
-                    
-                    row_cells = table.add_row().cells
-                    row_cells[0].text = 'Total Additional Project Expenses'
-                    row_cells[1].text = f'${additional_expenses:,.2f}'
-                    
-                    row_cells = table.add_row().cells
-                    p1 = row_cells[0].paragraphs[0]
-                    p2 = row_cells[1].paragraphs[0]
-                    p1.add_run('Total Project Cost').bold = True
-                    p2.add_run(f'${total_cost:,.2f}').bold = True
+                    # Project Totals table is now handled by the markdown content, no need to duplicate here
                     
                     doc.add_paragraph()  # Add spacing after Section 5
                     continue
@@ -1659,9 +1634,9 @@ def generate_sow():  # no longer async
                     clean_description = deliverable.get('description', '').strip()
                     if target_date:
                         date_str = target_date.strftime('%B %d, %Y')
-                        deliverable_text = f"**Deliverable {deliverable_index}: {clean_description}** - Target completion date: {date_str}\n"
+                        deliverable_text = f"**Deliverable {deliverable_index}: {clean_description}** - Target completion date: **{date_str}**\n"
                     else:
-                        deliverable_text = f"**Deliverable {deliverable_index}: {clean_description}** - Target completion date: (No date provided)\n"
+                        deliverable_text = f"**Deliverable {deliverable_index}: {clean_description}** - Target completion date: **(No date provided)**\n"
                     
                     # Add milestone information if exists
                     if 'milestones' in deliverable and any(m.get('description') for m in deliverable['milestones']):
@@ -2306,7 +2281,7 @@ def generate_section_5_costs():
         # Add divider between deliverables (only if there are multiple deliverables and this isn't the last one)
         total_deliverables = len(st.session_state.deliverables)
         if total_deliverables > 1 and i < total_deliverables:
-            section += '---\n\n'
+            section += '<div style="width: 50%; height: 2px; background-color: #ccc; margin: 20px auto;"></div>\n\n'
     
     # Add materials costs if any
     if materials_total > 0:
@@ -2322,7 +2297,7 @@ def generate_section_5_costs():
         section += f"\n**Total Materials: ${materials_total:,.2f}**\n\n"
         
         # Add divider before Project Summary
-        section += '---\n\n'
+        section += '<div style="width: 50%; height: 2px; background-color: #ccc; margin: 20px auto;"></div>\n\n'
     
     # Add detailed project totals breakdown
     section += "\n**Project Totals**\n\n"
@@ -2382,7 +2357,7 @@ def generate_section_5_costs():
         section += f"\n**Materials:**\n\n"
         section += f"- Materials: ${materials_total:,.2f}\n"
     
-    # Project Summary Table
+    # Project Summary Table - moved to the very end
     section += f"\n**Project Summary:**\n\n"
     section += "| Category | Amount |\n"
     section += "|----------|--------|\n"
@@ -3320,7 +3295,7 @@ def main():
             # Display the content inside the styled container using a container
             with st.container():
                 st.markdown('<div style="margin: -20px 30px 30px 30px;">', unsafe_allow_html=True)
-                st.markdown(st.session_state.sow_result['content'])
+                st.markdown(st.session_state.sow_result['content'], unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
             
             # Download buttons
