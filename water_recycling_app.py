@@ -830,7 +830,9 @@ def create_document(content, file_format):
                     "**Additional Costs by Deliverable:**",
                     "**Materials:**",
                     "**Project Summary:**",
-                    "Project Totals"
+                    "Project Totals",
+                    "- Deliverable",  # Skip individual deliverable cost lines
+                    "- Materials:"   # Skip individual materials lines
                 ]):
                     continue
 
