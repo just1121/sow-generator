@@ -2295,13 +2295,18 @@ def generate_section_5_costs():
                     
                     section += f"\n**Total Additional Costs for Deliverable {i}: ${deliverable_additional_total:,.2f}**\n\n"
                 
-                # Add total costs for this deliverable
-                total_deliverable_all_costs = del_total + deliverable_additional_total
-                section += f"**Total Costs (Labor + Additional) for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
-            else:
-                # No additional costs, but still show total costs
-                total_deliverable_all_costs = del_total
-                section += f"**Total Costs (Labor + Additional) for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
+                            # Add total costs for this deliverable
+            total_deliverable_all_costs = del_total + deliverable_additional_total
+            section += f"**Total Costs (Labor + Additional) for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
+        else:
+            # No additional costs, but still show total costs
+            total_deliverable_all_costs = del_total
+            section += f"**Total Costs (Labor + Additional) for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
+        
+        # Add divider between deliverables (only if there are multiple deliverables and this isn't the last one)
+        total_deliverables = len(st.session_state.deliverables)
+        if total_deliverables > 1 and i < total_deliverables:
+            section += '<div style="width: 50%; height: 2px; background-color: #ccc; margin: 20px auto;"></div>\n\n'
     
     # Add materials costs if any
     if materials_total > 0:
@@ -2315,6 +2320,9 @@ def generate_section_5_costs():
             details_text = f"Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup"
         section += f"| Materials | {details_text} | ${materials_total:,.2f} |\n"
         section += f"\n**Total Materials: ${materials_total:,.2f}**\n\n"
+        
+        # Add divider before Project Summary
+        section += '<div style="width: 50%; height: 2px; background-color: #ccc; margin: 20px auto;"></div>\n\n'
     
     # Add detailed project totals breakdown
     section += "\n**Project Totals**\n\n"
@@ -2329,7 +2337,7 @@ def generate_section_5_costs():
                 section += f"- Deliverable {i}: ${del_labor_total:,.2f}\n"
     
     # Additional costs breakdown by deliverable
-    if total_deliverable_additional_costs > 0 or materials_total > 0:
+    if total_deliverable_additional_costs > 0:
         section += f"\n**Additional Costs by Deliverable:**\n\n"
         for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
             deliverable_additional_cost = 0.0
@@ -2368,9 +2376,11 @@ def generate_section_5_costs():
             
             if deliverable_additional_cost > 0:
                 section += f"- Deliverable {i}: ${deliverable_additional_cost:,.2f}\n"
-        
-        if materials_total > 0:
-            section += f"- Materials: ${materials_total:,.2f}\n"
+    
+    # Materials costs as separate section
+    if materials_total > 0:
+        section += f"\n**Materials:**\n\n"
+        section += f"- Materials: ${materials_total:,.2f}\n"
     
     # Project Summary Table
     section += f"\n**Project Summary:**\n\n"
