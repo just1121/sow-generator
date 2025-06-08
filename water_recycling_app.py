@@ -458,7 +458,7 @@ def create_document(content, file_format):
                     total_cost = labor_cost + total_additional_costs
                     
                     narrative = (f"The estimated cost for completion of this Statement of Work is ${total_cost:,.2f}. "
-                               f"The tables below details the estimated efforts required. Material changes to the "
+                               f"The tables below detail the estimated efforts required. Material changes to the "
                                f"SOW will be agreed upon in writing and may constitute a change in basis for "
                                f"compensation increasing or decreasing accordingly.\n\n"
                                f"Efforts not explicitly listed in the table below are the responsibility of {client_name}. "
@@ -650,20 +650,6 @@ def create_document(content, file_format):
                             doc.add_paragraph()  # Add space
                             p_add_total = doc.add_paragraph()
                             p_add_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                            p_add_total.add_run("Additional Costs Subtotal: ")
-                            p_add_total.add_run(f"${deliverable_additional_total:,.2f}").bold = True
-                            
-                            # TOTAL COST FOR DELIVERABLE (highlighted)
-                            total_deliverable_all_costs = total_deliverable_labor_cost + deliverable_additional_total
-                            doc.add_paragraph()  # Add space
-                            p_del_total = doc.add_paragraph()
-                            p_del_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                            # Make this line more prominent
-                            run_total_label = p_del_total.add_run(f"Total Cost for Deliverable {i} (Labor + Additional): ")
-                            run_total_label.bold = True
-                            run_total_amount = p_del_total.add_run(f"${total_deliverable_all_costs:,.2f}")
-                            run_total_amount.bold = True
-                            run_total_amount.font.color.rgb = RGBColor(0, 0, 139)  # Dark blue for emphasis
                             
                             # Track for summary
                             deliverable_totals.append({
@@ -676,7 +662,6 @@ def create_document(content, file_format):
                             
                             # Add spacing after each deliverable
                             doc.add_paragraph()
-                            doc.add_paragraph("─" * 60)  # Visual separator
                             doc.add_paragraph()
                     
                     # Add Deliverable Summary table
@@ -706,7 +691,7 @@ def create_document(content, file_format):
                     # Add project-wide additional costs if any
                     if materials_total > 0:
                         p_project_header = doc.add_paragraph()
-                        run_project_header = p_project_header.add_run("Project-Wide Additional Costs")
+                        run_project_header = p_project_header.add_run("Additional Project Costs")
                         apply_base_heading_style(run_project_header)
                         run_project_header.bold = True
                         
@@ -719,7 +704,7 @@ def create_document(content, file_format):
                     
                         # Materials row
                         row_cells = project_table.add_row().cells
-                        row_cells[0].text = 'Materials'
+                        row_cells[0].text = 'Total Materials Costs'
                         row_cells[1].text = f"Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup"
                         row_cells[2].text = f"${materials_total:,.2f}"
                         
@@ -741,15 +726,23 @@ def create_document(content, file_format):
                     header_cells[0].paragraphs[0].add_run('Category').bold = True
                     header_cells[1].paragraphs[0].add_run('Amount').bold = True
                     
+                    # Calculate deliverable-only additional costs for the table
+                    deliverable_only_additional_costs = total_additional_costs - materials_total
+                    
                     # Add rows for totals
                     row_cells = table.add_row().cells
                     row_cells[0].text = 'Total Labor Costs'
                     row_cells[1].text = f'${labor_cost:,.2f}'
                     
-                    if total_additional_costs > 0:
+                    if deliverable_only_additional_costs > 0:
                         row_cells = table.add_row().cells
-                        row_cells[0].text = 'Total Additional Project Expenses'
-                        row_cells[1].text = f'${total_additional_costs:,.2f}'
+                        row_cells[0].text = 'Total Additional Costs'
+                        row_cells[1].text = f'${deliverable_only_additional_costs:,.2f}'
+                    
+                    if materials_total > 0:
+                        row_cells = table.add_row().cells
+                        row_cells[0].text = 'Total Materials Costs'
+                        row_cells[1].text = f'${materials_total:,.2f}'
                     
                     row_cells = table.add_row().cells
                     p1 = row_cells[0].paragraphs[0]
@@ -893,7 +886,7 @@ def create_document(content, file_format):
                     total_cost = labor_cost + additional_expenses
                     
                     narrative = (f"The estimated cost for completion of this Statement of Work is ${total_cost:,.2f}. "
-                               f"The tables below details the estimated efforts required. Material changes to the "
+                               f"The tables below detail the estimated efforts required. Material changes to the "
                                f"SOW will be agreed upon in writing and may constitute a change in basis for "
                                f"compensation increasing or decreasing accordingly.\n\n"
                                f"Efforts not explicitly listed in the table below are the responsibility of {client_name}. "
@@ -1085,20 +1078,6 @@ def create_document(content, file_format):
                             doc.add_paragraph()  # Add space
                             p_add_total = doc.add_paragraph()
                             p_add_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                            p_add_total.add_run("Additional Costs Subtotal: ")
-                            p_add_total.add_run(f"${deliverable_additional_total:,.2f}").bold = True
-                            
-                            # TOTAL COST FOR DELIVERABLE (highlighted)
-                            total_deliverable_all_costs = total_deliverable_labor_cost + deliverable_additional_total
-                            doc.add_paragraph()  # Add space
-                            p_del_total = doc.add_paragraph()
-                            p_del_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                            # Make this line more prominent
-                            run_total_label = p_del_total.add_run(f"Total Cost for Deliverable {i} (Labor + Additional): ")
-                            run_total_label.bold = True
-                            run_total_amount = p_del_total.add_run(f"${total_deliverable_all_costs:,.2f}")
-                            run_total_amount.bold = True
-                            run_total_amount.font.color.rgb = RGBColor(0, 0, 139)  # Dark blue for emphasis
                             
                             # Track for summary
                             deliverable_totals.append({
@@ -1111,7 +1090,6 @@ def create_document(content, file_format):
                             
                             # Add spacing after each deliverable
                             doc.add_paragraph()
-                            doc.add_paragraph("─" * 60)  # Visual separator
                             doc.add_paragraph()
                     
                     # Add rental costs section if there are rentals
@@ -2156,7 +2134,7 @@ def generate_section_5_costs():
     # Add narrative
     client_name = st.session_state.questions['client']["answer"].strip()
     section += (f"The estimated cost for completion of this Statement of Work is ${total_project_cost:,.2f}. "
-                f"The tables below details the estimated efforts required. Material changes to the "
+                f"The tables below detail the estimated efforts required. Material changes to the "
                 f"SOW will be agreed upon in writing and may constitute a change in basis for "
                 f"compensation increasing or decreasing accordingly.\n\n"
                 f"Efforts not explicitly listed in the table below are the responsibility of {client_name}. "
@@ -2268,24 +2246,12 @@ def generate_section_5_costs():
                                 section += f"| Travel | {desc} | ${amount:,.2f} |\n"
                                 deliverable_additional_total += amount
                     
-                    section += f"\n**Total Additional Costs for Deliverable {i}: ${deliverable_additional_total:,.2f}**\n\n"
-                
-                            # Add total costs for this deliverable
-            total_deliverable_all_costs = del_total + deliverable_additional_total
-            section += f"**Total Costs (Labor + Additional) for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
-        else:
-            # No additional costs, but still show total costs
-            total_deliverable_all_costs = del_total
-            section += f"**Total Costs (Labor + Additional) for Deliverable {i}: ${total_deliverable_all_costs:,.2f}**\n\n"
-        
-        # Add divider between deliverables (only if there are multiple deliverables and this isn't the last one)
-        total_deliverables = len(st.session_state.deliverables)
-        if total_deliverables > 1 and i < total_deliverables:
-            section += '<div style="width: 50%; height: 2px; background-color: #ccc; margin: 20px auto;"></div>\n\n'
+                                        # Remove redundant totaling per user request
+        # Remove dividers from markdown content per user request
     
     # Add materials costs if any
     if materials_total > 0:
-        section += "\n**Materials**\n\n"
+        section += "\n**Additional Project Costs**\n\n"
         section += "| Cost Type | Details | Amount |\n"
         section += "|-----------|---------|--------|\n"
         materials_desc = expenses.get('materials_description', '')
@@ -2293,11 +2259,8 @@ def generate_section_5_costs():
             details_text = f"{materials_desc} (Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup)"
         else:
             details_text = f"Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup"
-        section += f"| Materials | {details_text} | ${materials_total:,.2f} |\n"
+        section += f"| Total Materials Costs | {details_text} | ${materials_total:,.2f} |\n"
         section += f"\n**Total Materials: ${materials_total:,.2f}**\n\n"
-        
-        # Add divider before Project Summary
-        section += '<div style="width: 50%; height: 2px; background-color: #ccc; margin: 20px auto;"></div>\n\n'
     
     # Add detailed project totals breakdown
     section += "\n**Project Totals**\n\n"
@@ -2362,7 +2325,7 @@ def generate_section_5_costs():
     section += "| Category | Amount |\n"
     section += "|----------|--------|\n"
     section += f"| Total Labor Costs | ${total_labor_cost:,.2f} |\n"
-    section += f"| Total Additional Costs | ${total_additional_costs:,.2f} |\n"
+    section += f"| Total Additional Costs | ${total_deliverable_additional_costs:,.2f} |\n"
     if materials_total > 0:
         section += f"| Total Materials Costs | ${materials_total:,.2f} |\n"
     section += f"| **Total Project Cost** | **${total_project_cost:,.2f}** |\n\n"
@@ -3268,35 +3231,8 @@ def main():
     # Display generated SOW or status
     if 'sow_result' in st.session_state:
         if st.session_state.sow_result['status'] == 'success':
-            # Display generated content with enhanced visual styling
-            st.markdown("""
-            <div style="
-                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-                padding: 30px; 
-                border-radius: 15px; 
-                border: 2px solid #007BFF;
-                margin: 25px 0;
-                box-shadow: 0 8px 25px rgba(0,123,255,0.15);
-                position: relative;
-            ">
-            <div style="
-                position: absolute;
-                top: -1px;
-                left: -1px;
-                right: -1px;
-                height: 5px;
-                background: linear-gradient(90deg, #007BFF, #0056b3, #007BFF);
-                border-radius: 15px 15px 0 0;
-            "></div>
-            <h3 style="margin-top: 10px;">📄 Generated Statement of Work</h3>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Display the content inside the styled container using a container
-            with st.container():
-                st.markdown('<div style="margin: -20px 30px 30px 30px;">', unsafe_allow_html=True)
-                st.markdown(st.session_state.sow_result['content'], unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+            # Display generated content without styling box
+            st.markdown(st.session_state.sow_result['content'], unsafe_allow_html=True)
             
             # Download buttons
             st.subheader("Download Documents")
