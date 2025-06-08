@@ -657,7 +657,6 @@ def create_document(content, file_format):
                             total_deliverable_all_costs = total_deliverable_labor_cost + deliverable_additional_total
                             
                             # Add total cost for deliverable
-                            doc.add_paragraph()  # Add space
                             p_deliverable_total = doc.add_paragraph()
                             p_deliverable_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
                             p_deliverable_total.add_run(f"Total Cost for Deliverable {i} (Labor + Additional): ")
@@ -1104,7 +1103,6 @@ def create_document(content, file_format):
                             total_deliverable_all_costs = total_deliverable_labor_cost + deliverable_additional_total
                             
                             # Add total cost for deliverable
-                            doc.add_paragraph()  # Add space
                             p_deliverable_total = doc.add_paragraph()
                             p_deliverable_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
                             p_deliverable_total.add_run(f"Total Cost for Deliverable {i} (Labor + Additional): ")
