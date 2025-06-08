@@ -651,6 +651,9 @@ def create_document(content, file_format):
                             p_add_total = doc.add_paragraph()
                             p_add_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
                             
+                            # Calculate total cost for this deliverable
+                            total_deliverable_all_costs = total_deliverable_labor_cost + deliverable_additional_total
+                            
                             # Track for summary
                             deliverable_totals.append({
                                 'number': i,
@@ -1078,6 +1081,9 @@ def create_document(content, file_format):
                             doc.add_paragraph()  # Add space
                             p_add_total = doc.add_paragraph()
                             p_add_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                            
+                            # Calculate total cost for this deliverable
+                            total_deliverable_all_costs = total_deliverable_labor_cost + deliverable_additional_total
                             
                             # Track for summary
                             deliverable_totals.append({
