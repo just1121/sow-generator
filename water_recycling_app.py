@@ -725,6 +725,55 @@ def create_document(content, file_format):
                         p.add_run("Total Project-Wide Additional Costs: ")
                         p.add_run(f"${materials_total:,.2f}").bold = True
                     
+                    # Add detailed breakdown sections
+                    doc.add_paragraph()  # Add space before breakdown
+                    
+                    # Labor Costs by Deliverable
+                    p_labor_breakdown_header = doc.add_paragraph()
+                    run_labor_breakdown_header = p_labor_breakdown_header.add_run("Labor Costs by Deliverable:")
+                    apply_base_heading_style(run_labor_breakdown_header)
+                    run_labor_breakdown_header.bold = True
+                    
+                    for deliverable_data in deliverable_totals:
+                        if deliverable_data['labor_cost'] > 0:
+                            p_labor_item = doc.add_paragraph()
+                            p_labor_item.style.name = 'List Bullet'
+                            p_labor_item.add_run(f"Deliverable {deliverable_data['number']}: ${deliverable_data['labor_cost']:,.2f}")
+                    
+                    # Additional Costs by Deliverable
+                    total_deliverable_additional_costs = sum(d['additional_cost'] for d in deliverable_totals)
+                    if total_deliverable_additional_costs > 0:
+                        doc.add_paragraph()  # Add space
+                        p_additional_breakdown_header = doc.add_paragraph()
+                        run_additional_breakdown_header = p_additional_breakdown_header.add_run("Additional Costs by Deliverable:")
+                        apply_base_heading_style(run_additional_breakdown_header)
+                        run_additional_breakdown_header.bold = True
+                        
+                        for deliverable_data in deliverable_totals:
+                            if deliverable_data['additional_cost'] > 0:
+                                p_additional_item = doc.add_paragraph()
+                                p_additional_item.style.name = 'List Bullet'
+                                p_additional_item.add_run(f"Deliverable {deliverable_data['number']}: ${deliverable_data['additional_cost']:,.2f}")
+                    
+                    # Materials section
+                    if materials_total > 0:
+                        doc.add_paragraph()  # Add space
+                        p_materials_breakdown_header = doc.add_paragraph()
+                        run_materials_breakdown_header = p_materials_breakdown_header.add_run("Materials:")
+                        apply_base_heading_style(run_materials_breakdown_header)
+                        run_materials_breakdown_header.bold = True
+                        
+                        p_materials_item = doc.add_paragraph()
+                        p_materials_item.style.name = 'List Bullet'
+                        p_materials_item.add_run(f"Materials: ${materials_total:,.2f}")
+                    
+                    # Project Summary
+                    doc.add_paragraph()  # Add space
+                    p_summary_header = doc.add_paragraph()
+                    run_summary_header = p_summary_header.add_run("Project Summary:")
+                    apply_base_heading_style(run_summary_header)
+                    run_summary_header.bold = True
+                    
                     # Add Project Totals table
                     p_total_header = doc.add_paragraph()
                     run_total_header = p_total_header.add_run("Project Totals")
@@ -1182,7 +1231,85 @@ def create_document(content, file_format):
                     # Add spacing after table
                     doc.add_paragraph()
                     
-                    # Project Totals table is now handled by the markdown content, no need to duplicate here
+                    # Add detailed breakdown sections
+                    if deliverable_totals:
+                        # Labor Costs by Deliverable
+                        p_labor_breakdown_header = doc.add_paragraph()
+                        run_labor_breakdown_header = p_labor_breakdown_header.add_run("Labor Costs by Deliverable:")
+                        apply_base_heading_style(run_labor_breakdown_header)
+                        run_labor_breakdown_header.bold = True
+                        
+                        for deliverable_data in deliverable_totals:
+                            if deliverable_data['labor_cost'] > 0:
+                                p_labor_item = doc.add_paragraph()
+                                p_labor_item.style.name = 'List Bullet'
+                                p_labor_item.add_run(f"Deliverable {deliverable_data['number']}: ${deliverable_data['labor_cost']:,.2f}")
+                        
+                        # Additional Costs by Deliverable
+                        total_deliverable_additional_costs = sum(d['additional_cost'] for d in deliverable_totals)
+                        if total_deliverable_additional_costs > 0:
+                            doc.add_paragraph()  # Add space
+                            p_additional_breakdown_header = doc.add_paragraph()
+                            run_additional_breakdown_header = p_additional_breakdown_header.add_run("Additional Costs by Deliverable:")
+                            apply_base_heading_style(run_additional_breakdown_header)
+                            run_additional_breakdown_header.bold = True
+                            
+                            for deliverable_data in deliverable_totals:
+                                if deliverable_data['additional_cost'] > 0:
+                                    p_additional_item = doc.add_paragraph()
+                                    p_additional_item.style.name = 'List Bullet'
+                                    p_additional_item.add_run(f"Deliverable {deliverable_data['number']}: ${deliverable_data['additional_cost']:,.2f}")
+                        
+                        # Materials section
+                        if materials_total > 0:
+                            doc.add_paragraph()  # Add space
+                            p_materials_breakdown_header = doc.add_paragraph()
+                            run_materials_breakdown_header = p_materials_breakdown_header.add_run("Materials:")
+                            apply_base_heading_style(run_materials_breakdown_header)
+                            run_materials_breakdown_header.bold = True
+                            
+                            p_materials_item = doc.add_paragraph()
+                            p_materials_item.style.name = 'List Bullet'
+                            p_materials_item.add_run(f"Materials: ${materials_total:,.2f}")
+                        
+                        # Project Summary
+                        doc.add_paragraph()  # Add space
+                        p_summary_header = doc.add_paragraph()
+                        run_summary_header = p_summary_header.add_run("Project Summary:")
+                        apply_base_heading_style(run_summary_header)
+                        run_summary_header.bold = True
+                        
+                        # Add final summary table
+                        total_labor_cost = sum(d['labor_cost'] for d in deliverable_totals)
+                        total_additional_cost = sum(d['additional_cost'] for d in deliverable_totals)
+                        grand_total = total_labor_cost + total_additional_cost + materials_total
+                        
+                        summary_table = doc.add_table(rows=1, cols=2)
+                        format_table(summary_table)
+                        summary_header_cells = summary_table.rows[0].cells
+                        summary_header_cells[0].paragraphs[0].add_run('Category').bold = True
+                        summary_header_cells[1].paragraphs[0].add_run('Amount').bold = True
+                        
+                        # Add rows
+                        row_cells = summary_table.add_row().cells
+                        row_cells[0].text = 'Total Labor Costs'
+                        row_cells[1].text = f'${total_labor_cost:,.2f}'
+                        
+                        if total_additional_cost > 0:
+                            row_cells = summary_table.add_row().cells
+                            row_cells[0].text = 'Total Additional Costs'
+                            row_cells[1].text = f'${total_additional_cost:,.2f}'
+                        
+                        if materials_total > 0:
+                            row_cells = summary_table.add_row().cells
+                            row_cells[0].text = 'Total Materials Costs'
+                            row_cells[1].text = f'${materials_total:,.2f}'
+                        
+                        row_cells = summary_table.add_row().cells
+                        p1 = row_cells[0].paragraphs[0]
+                        p2 = row_cells[1].paragraphs[0]
+                        p1.add_run('Total Project Cost').bold = True
+                        p2.add_run(f'${grand_total:,.2f}').bold = True
                     
                     doc.add_paragraph()  # Add spacing after Section 5
                     continue
