@@ -2306,7 +2306,7 @@ def generate_section_5_costs():
         # Add divider between deliverables (only if there are multiple deliverables and this isn't the last one)
         total_deliverables = len(st.session_state.deliverables)
         if total_deliverables > 1 and i < total_deliverables:
-            section += '<div style="width: 50%; height: 2px; background-color: #ccc; margin: 20px auto;"></div>\n\n'
+            section += '---\n\n'
     
     # Add materials costs if any
     if materials_total > 0:
@@ -2322,7 +2322,7 @@ def generate_section_5_costs():
         section += f"\n**Total Materials: ${materials_total:,.2f}**\n\n"
         
         # Add divider before Project Summary
-        section += '<div style="width: 50%; height: 2px; background-color: #ccc; margin: 20px auto;"></div>\n\n'
+        section += '---\n\n'
     
     # Add detailed project totals breakdown
     section += "\n**Project Totals**\n\n"
