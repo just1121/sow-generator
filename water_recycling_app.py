@@ -650,9 +650,18 @@ def create_document(content, file_format):
                             doc.add_paragraph()  # Add space
                             p_add_total = doc.add_paragraph()
                             p_add_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                            p_add_total.add_run("Additional Costs Subtotal: ")
+                            p_add_total.add_run(f"${deliverable_additional_total:,.2f}").bold = True
                             
                             # Calculate total cost for this deliverable
                             total_deliverable_all_costs = total_deliverable_labor_cost + deliverable_additional_total
+                            
+                            # Add total cost for deliverable
+                            doc.add_paragraph()  # Add space
+                            p_deliverable_total = doc.add_paragraph()
+                            p_deliverable_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                            p_deliverable_total.add_run(f"Total Cost for Deliverable {i} (Labor + Additional): ")
+                            p_deliverable_total.add_run(f"${total_deliverable_all_costs:,.2f}").bold = True
                             
                             # Track for summary
                             deliverable_totals.append({
@@ -766,6 +775,13 @@ def create_document(content, file_format):
                     "The estimated cost for completion of this Statement of Work",
                     "Efforts not explicitly listed in the table below",
                     "**Additional Expenses**",
+                    "**Additional Costs for Deliverable",
+                    "**Additional Project Costs**",
+                    "**Total Materials:",
+                    "**Labor Costs by Deliverable:**",
+                    "**Additional Costs by Deliverable:**",
+                    "**Materials:**",
+                    "**Project Summary:**",
                     "Project Totals"
                 ]):
                     continue
@@ -1081,9 +1097,18 @@ def create_document(content, file_format):
                             doc.add_paragraph()  # Add space
                             p_add_total = doc.add_paragraph()
                             p_add_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                            p_add_total.add_run("Additional Costs Subtotal: ")
+                            p_add_total.add_run(f"${deliverable_additional_total:,.2f}").bold = True
                             
                             # Calculate total cost for this deliverable
                             total_deliverable_all_costs = total_deliverable_labor_cost + deliverable_additional_total
+                            
+                            # Add total cost for deliverable
+                            doc.add_paragraph()  # Add space
+                            p_deliverable_total = doc.add_paragraph()
+                            p_deliverable_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                            p_deliverable_total.add_run(f"Total Cost for Deliverable {i} (Labor + Additional): ")
+                            p_deliverable_total.add_run(f"${total_deliverable_all_costs:,.2f}").bold = True
                             
                             # Track for summary
                             deliverable_totals.append({
