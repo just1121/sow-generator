@@ -1159,12 +1159,6 @@ def create_document(content, file_format):
                     # Add spacing after table
                     doc.add_paragraph()
                     
-                    # Add rows for expenses
-                    row_cells = table.add_row().cells
-                    row_cells[0].text = 'Additional Costs'
-                    row_cells[1].text = ''  # Empty details column
-                    row_cells[2].text = f'${additional_expenses:,.2f}'  # Amount in last column
-                    
                     # Project Totals table is now handled by the markdown content, no need to duplicate here
                     
                     doc.add_paragraph()  # Add spacing after Section 5
