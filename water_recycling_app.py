@@ -1257,7 +1257,7 @@ def create_document(content, file_format):
                     # Set headers for Additional Expenses table
                     header_cells = table.rows[0].cells
                     header_cells[0].paragraphs[0].add_run('Expense Type').bold = True
-                    header_cells[1].paragraphs[0].add_run('Details').bold = True
+                    header_cells[1].paragraphs[0].add_run('Category').bold = True
                     header_cells[2].paragraphs[0].add_run('Amount').bold = True
                     
                     # Add expense rows
@@ -1266,7 +1266,11 @@ def create_document(content, file_format):
                     # Materials row
                     row_cells = table.add_row().cells
                     row_cells[0].text = 'Materials'
-                    row_cells[1].text = f"Including {expenses['materials_markup']*100:.1f}% markup"
+                    materials_desc = expenses.get('materials_description', '')
+                    if materials_desc:
+                        row_cells[1].text = materials_desc
+                    else:
+                        row_cells[1].text = f"Including {expenses['materials_markup']*100:.1f}% markup"
                     materials_total = expenses['materials_cost'] * (1 + expenses['materials_markup'])
                     row_cells[2].text = f"${materials_total:,.2f}"
                     
