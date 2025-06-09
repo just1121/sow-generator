@@ -941,15 +941,54 @@ def create_document(content, file_format):
                                   for details in deliverable.get('labor_costs', {}).values() 
                                   if isinstance(details, dict))
                     
-                    # Calculate rental total
-                    rental_total = 0.0
-                    if st.session_state.rental_rates.get('has_rentals', False):
-                        rental_total = sum(item['qty'] * item['rate'] for item in st.session_state.rental_rates['items'])
+                    # Calculate deliverable-specific additional costs
+                    total_deliverable_additional_costs = 0.0
+                    for deliverable in st.session_state.deliverables.values():
+                        if 'additional_costs' in deliverable:
+                            additional_costs = deliverable['additional_costs']
+                            
+                            # Equipment rentals
+                            if additional_costs.get('equipment_rentals', {}).get('enabled', False):
+                                equipment_rentals = additional_costs['equipment_rentals']
+                                if 'items' in equipment_rentals:
+                                    # New format with multiple items
+                                    for item in equipment_rentals['items']:
+                                        if 'weeks' in item and 'rate_per_week' in item:
+                                            # New weekly structure
+                                            total_deliverable_additional_costs += item.get('weeks', 1) * item.get('rate_per_week', 0)
+                                        else:
+                                            # Old amount structure
+                                            total_deliverable_additional_costs += item.get('amount', 0)
+                                else:
+                                    # Old format compatibility
+                                    total_deliverable_additional_costs += equipment_rentals.get('amount', 0)
+                            
+                            # Mileage
+                            if additional_costs.get('mileage', {}).get('enabled', False):
+                                total_deliverable_additional_costs += (additional_costs['mileage']['miles'] * 
+                                                                     additional_costs['mileage']['rate'])
+                            
+                            # Truck days
+                            if additional_costs.get('truck_days', {}).get('enabled', False):
+                                total_deliverable_additional_costs += (additional_costs['truck_days']['days'] * 
+                                                                     additional_costs['truck_days']['rate'])
+                            
+                            # Travel
+                            if additional_costs.get('travel', {}).get('enabled', False):
+                                travel_data = additional_costs['travel']
+                                if 'items' in travel_data:
+                                    # New format with multiple items
+                                    total_deliverable_additional_costs += sum(item.get('amount', 0) for item in travel_data['items'])
+                                else:
+                                    # Old format compatibility
+                                    total_deliverable_additional_costs += travel_data.get('amount', 0)
                     
-                    additional_expenses = (
-                        st.session_state.expenses['materials_cost'] * (1 + st.session_state.expenses['materials_markup'])
-                    )
-                    total_cost = labor_cost + additional_expenses
+                    # Calculate global additional costs (materials only)
+                    expenses = st.session_state.expenses
+                    materials_total = expenses.get('materials_cost', 0) * (1 + expenses.get('materials_markup', 0.25))
+                    
+                    total_additional_costs = total_deliverable_additional_costs + materials_total
+                    total_cost = labor_cost + total_additional_costs
                     
                     narrative = (f"The estimated cost for completion of this Statement of Work is ${total_cost:,.2f}. "
                                f"The tables below detail the estimated efforts required. Material changes to the "
