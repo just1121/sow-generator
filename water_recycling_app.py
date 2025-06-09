@@ -716,7 +716,12 @@ def create_document(content, file_format):
                         # Materials row
                         row_cells = project_table.add_row().cells
                         row_cells[0].text = 'Total Materials Costs'
-                        row_cells[1].text = f"Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup"
+                        materials_desc = expenses.get('materials_description', '')
+                        if materials_desc:
+                            details_text = f"{materials_desc} (Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup)"
+                        else:
+                            details_text = f"Including {expenses.get('materials_markup', 0.25)*100:.1f}% markup"
+                        row_cells[1].text = details_text
                         row_cells[2].text = f"${materials_total:,.2f}"
                         
                         doc.add_paragraph()  # Add space before total
