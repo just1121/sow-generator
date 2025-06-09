@@ -737,8 +737,7 @@ def create_document(content, file_format):
                     for deliverable_data in deliverable_totals:
                         if deliverable_data['labor_cost'] > 0:
                             p_labor_item = doc.add_paragraph()
-                            p_labor_item.style.name = 'List Bullet'
-                            p_labor_item.add_run(f"Deliverable {deliverable_data['number']}: ${deliverable_data['labor_cost']:,.2f}")
+                            p_labor_item.add_run(f"• Deliverable {deliverable_data['number']}: ${deliverable_data['labor_cost']:,.2f}")
                     
                     # Additional Costs by Deliverable
                     total_deliverable_additional_costs = sum(d['additional_cost'] for d in deliverable_totals)
@@ -752,8 +751,7 @@ def create_document(content, file_format):
                         for deliverable_data in deliverable_totals:
                             if deliverable_data['additional_cost'] > 0:
                                 p_additional_item = doc.add_paragraph()
-                                p_additional_item.style.name = 'List Bullet'
-                                p_additional_item.add_run(f"Deliverable {deliverable_data['number']}: ${deliverable_data['additional_cost']:,.2f}")
+                                p_additional_item.add_run(f"• Deliverable {deliverable_data['number']}: ${deliverable_data['additional_cost']:,.2f}")
                     
                     # Materials section
                     if materials_total > 0:
@@ -764,8 +762,7 @@ def create_document(content, file_format):
                         run_materials_breakdown_header.bold = True
                         
                         p_materials_item = doc.add_paragraph()
-                        p_materials_item.style.name = 'List Bullet'
-                        p_materials_item.add_run(f"Materials: ${materials_total:,.2f}")
+                        p_materials_item.add_run(f"• Materials: ${materials_total:,.2f}")
                     
                     # Project Summary
                     doc.add_paragraph()  # Add space
@@ -1244,8 +1241,7 @@ def create_document(content, file_format):
                         for deliverable_data in deliverable_totals:
                             if deliverable_data['labor_cost'] > 0:
                                 p_labor_item = doc.add_paragraph()
-                                p_labor_item.style.name = 'List Bullet'
-                                p_labor_item.add_run(f"Deliverable {deliverable_data['number']}: ${deliverable_data['labor_cost']:,.2f}")
+                                p_labor_item.add_run(f"• Deliverable {deliverable_data['number']}: ${deliverable_data['labor_cost']:,.2f}")
                         
                         # Additional Costs by Deliverable
                         total_deliverable_additional_costs = sum(d['additional_cost'] for d in deliverable_totals)
@@ -1259,8 +1255,7 @@ def create_document(content, file_format):
                             for deliverable_data in deliverable_totals:
                                 if deliverable_data['additional_cost'] > 0:
                                     p_additional_item = doc.add_paragraph()
-                                    p_additional_item.style.name = 'List Bullet'
-                                    p_additional_item.add_run(f"Deliverable {deliverable_data['number']}: ${deliverable_data['additional_cost']:,.2f}")
+                                    p_additional_item.add_run(f"• Deliverable {deliverable_data['number']}: ${deliverable_data['additional_cost']:,.2f}")
                         
                         # Materials section
                         if materials_total > 0:
@@ -1271,8 +1266,7 @@ def create_document(content, file_format):
                             run_materials_breakdown_header.bold = True
                             
                             p_materials_item = doc.add_paragraph()
-                            p_materials_item.style.name = 'List Bullet'
-                            p_materials_item.add_run(f"Materials: ${materials_total:,.2f}")
+                            p_materials_item.add_run(f"• Materials: ${materials_total:,.2f}")
                         
                         # Project Summary
                         doc.add_paragraph()  # Add space
