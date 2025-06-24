@@ -1267,7 +1267,7 @@ Third Paragraph:
 
             # Configure and generate with model
             genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-            model = genai.GenerativeModel('gemini-2.0-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             response = model.generate_content(prompt).text  # Remove asyncio.to_thread
 
             if response:
@@ -2201,7 +2201,7 @@ def main():
             if 'additional_costs' not in st.session_state.deliverables[deliverable_key]:
                 st.session_state.deliverables[deliverable_key]['additional_costs'] = {
                     'equipment_rentals': {'enabled': False, 'items': []},
-                    'mileage': {'enabled': False, 'miles': 0.0, 'rate': 0.625},
+                    'mileage': {'enabled': False, 'miles': 0.0, 'rate': 0.70},
                     'truck_days': {'enabled': False, 'days': 0.0, 'rate': 200.00},
                     'travel': {'enabled': False, 'items': []}
                 }
