@@ -843,7 +843,7 @@ def create_document(content, file_format):
                     if materials_desc:
                         row_cells[1].text = materials_desc
                     else:
-                    row_cells[1].text = f"Including {expenses['materials_markup']*100:.1f}% markup"
+                        row_cells[1].text = f"Including {expenses['materials_markup']*100:.1f}% markup"
                     materials_total = expenses['materials_cost'] * (1 + expenses['materials_markup'])
                     row_cells[2].text = f"${materials_total:,.2f}"
                     
