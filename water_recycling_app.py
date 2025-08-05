@@ -269,18 +269,37 @@ st.markdown("""
 
 def load_environment():
     load_dotenv()
-    if "GOOGLE_API_KEY" not in st.secrets:
-        st.error("Google API key not found in Streamlit secrets. Please add it to your secrets.toml file.")
-        st.stop()
-    # Only require GOOGLE_APPLICATION_CREDENTIALS if speech services are enabled
-    if speech_available and "GOOGLE_APPLICATION_CREDENTIALS" not in st.secrets:
-        st.error("Google Application Credentials not found for speech services in Streamlit secrets. Please add it to your secrets.toml file.")
+    
+    # Try to get API key from environment variables first (for Render/production)
+    google_api_key = os.environ.get("GOOGLE_API_KEY")
+    google_creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    
+    # If not in environment variables, try Streamlit secrets (for Streamlit Cloud)
+    if not google_api_key:
+        try:
+            if "GOOGLE_API_KEY" in st.secrets:
+                google_api_key = st.secrets["GOOGLE_API_KEY"]
+                os.environ["GOOGLE_API_KEY"] = google_api_key
+        except:
+            pass  # Secrets not available, continue with env vars only
+    
+    if speech_available and not google_creds:
+        try:
+            if "GOOGLE_APPLICATION_CREDENTIALS" in st.secrets:
+                google_creds = st.secrets["GOOGLE_APPLICATION_CREDENTIALS"]
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = google_creds
+        except:
+            pass  # Secrets not available, continue with env vars only
+    
+    # Check if we have the required API key
+    if not google_api_key:
+        st.error("Google API key not found. Please add GOOGLE_API_KEY as an environment variable or in secrets.toml file.")
         st.stop()
     
-    # Set environment variables from secrets
-    os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
-    if speech_available: # Only set if speech is enabled and creds are expected
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = st.secrets["GOOGLE_APPLICATION_CREDENTIALS"]
+    # Check for speech credentials only if speech is enabled
+    if speech_available and not google_creds:
+        st.error("Google Application Credentials not found for speech services. Please add GOOGLE_APPLICATION_CREDENTIALS as an environment variable or in secrets.toml file.")
+        st.stop()
 
 def create_document(content, file_format):
     try:
@@ -841,7 +860,7 @@ def create_document(content, file_format):
                     if materials_desc:
                         row_cells[1].text = materials_desc
                     else:
-                        row_cells[1].text = f"Including {expenses['materials_markup']*100:.1f}% markup"
+                    row_cells[1].text = f"Including {expenses['materials_markup']*100:.1f}% markup"
                     materials_total = expenses['materials_cost'] * (1 + expenses['materials_markup'])
                     row_cells[2].text = f"${materials_total:,.2f}"
                     
