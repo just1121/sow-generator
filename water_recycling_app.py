@@ -222,7 +222,7 @@ def initialize_session_state():
                     {'role': 'Mechanical Engineer', 'rate': 225.00, 'hours': 0},
                     {'role': 'Fabrication Specialist', 'rate': 175.00, 'hours': 0},
                     {'role': 'Discipline Specialist', 'rate': 175.00, 'hours': 0},
-                    {'role': 'Operation/Training Technician - ST', 'rate': 150.00, 'hours': 0},
+                    {'role': 'Operation/Training Technician - ST', 'rate': 135.00, 'hours': 0},
                     {'role': 'Operation/Training Technician - OT', 'rate': 225.00, 'hours': 0},
                     {'role': 'AI Support', 'rate': 200.00, 'hours': 0},
                     {'role': 'Administration/Purchasing', 'rate': 135.00, 'hours': 0},
