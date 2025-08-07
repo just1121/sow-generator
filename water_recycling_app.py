@@ -1177,13 +1177,7 @@ def generate_sow():  # no longer async
             deliverables_text = "\n\n**2. Deliverables**\n\n"
             deliverables_text += f"Contractor will provide all Deliverables to {client_name} by target completion date {formatted_completion_date}. Specific deliverable timelines are described below.\n\n"
 
-            # Debug: Print deliverable data
-            st.write(f"DEBUG: Number of deliverables: {len(st.session_state.deliverables)}")
-            for key, deliverable in st.session_state.deliverables.items():
-                st.write(f"DEBUG: {key}: description='{deliverable.get('description', '')}', target_date={deliverable.get('target_date')}")
-                st.write(f"  milestones: {deliverable.get('milestones', [])}")
-                st.write(f"  additional_services: {deliverable.get('additional_services', '')}")
-                st.write("---")
+
             
             for deliverable_index, (deliverable_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                 if deliverable.get('description'):
