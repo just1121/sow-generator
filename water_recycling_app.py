@@ -1450,16 +1450,25 @@ def create_entries_record():
         # Technical Requirements section
         tech_req = st.session_state.get('tech_req', 'No')
         doc.add_paragraph(f'Technical Requirements: {tech_req}')
-        if tech_req == "Yes":
+        if tech_req == "Yes" and 'project_details' in st.session_state.questions and 'technical_details' in st.session_state.questions['project_details']:
             doc.add_heading('Technical Requirements Details', level=2)
-            if 'tech_1' in st.session_state:
-                doc.add_paragraph(f'Technical Approach:\nResponse: {st.session_state.get("tech_1", "")}\n')
-            if 'tech_2' in st.session_state:
-                doc.add_paragraph(f'Specific Requirements:\nResponse: {st.session_state.get("tech_2", "")}\n')
-            if 'tech_3' in st.session_state:
-                doc.add_paragraph(f'Technical Limits:\nResponse: {st.session_state.get("tech_3", "")}\n')
-            if 'tech_4' in st.session_state:
-                doc.add_paragraph(f'Regulatory Standards:\nResponse: {st.session_state.get("tech_4", "")}\n')
+            for question in st.session_state.questions['project_details']['technical_details']:
+                doc.add_paragraph(f'{question["question"]}\nResponse: {question["answer"]}\n')
+        
+        # Additional Project Details section
+        if 'additional_details' in st.session_state.questions:
+            doc.add_heading('Additional Project Details', level=1)
+            for question in st.session_state.questions['additional_details']:
+                doc.add_paragraph(f'{question["question"]}\nResponse: {question["answer"]}\n')
+        
+        # Coordination Details section (if applicable)
+        if 'coordination_details' in st.session_state.questions:
+            coordination_has_answers = any(q.get("answer", "").strip() for q in st.session_state.questions['coordination_details'])
+            if coordination_has_answers:
+                doc.add_heading('Coordination Details', level=2)
+                for question in st.session_state.questions['coordination_details']:
+                    if question.get("answer", "").strip():
+                        doc.add_paragraph(f'{question["question"]}\nResponse: {question["answer"]}\n')
 
         doc.add_paragraph()
         
