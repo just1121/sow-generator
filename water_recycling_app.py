@@ -61,7 +61,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 # Set page config as the first Streamlit command
 st.set_page_config(
     page_title="SOW Generator - Recovered Water Solutions",
-    page_icon="static/RecWater-Solutions-Logo-1.png",
+    page_icon="🔧",  # Use emoji instead of file to avoid deployment issues
     layout="wide",
     initial_sidebar_state="expanded"
 )
