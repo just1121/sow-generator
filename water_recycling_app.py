@@ -1717,7 +1717,20 @@ def create_entries_record():
             for role, rate in labor_costs_safe.items():
                 row_cells = rates_table.add_row().cells
                 row_cells[0].text = role
-                row_cells[1].text = f"${rate:.2f}/hr"
+                
+                # Handle rate safely - it might be a list or other type
+                try:
+                    if isinstance(rate, (list, tuple)):
+                        # If it's a list, take the first numeric value
+                        rate_value = next((x for x in rate if isinstance(x, (int, float))), 0)
+                    elif isinstance(rate, (int, float)):
+                        rate_value = rate
+                    else:
+                        rate_value = float(rate) if str(rate).replace('.', '').isdigit() else 0
+                    
+                    row_cells[1].text = f"${rate_value:.2f}/hr"
+                except Exception:
+                    row_cells[1].text = f"${str(rate)}/hr"
         
         # Final Totals
         doc.add_paragraph()
