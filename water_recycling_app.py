@@ -11,6 +11,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import nsdecls
 from docx.shared import RGBColor
 import logging
+import subprocess
 import inspect
 import traceback
 
@@ -1376,9 +1377,15 @@ def create_entries_record():
             st.warning("Could not add title, continuing with content")
         
         # Client Info
+        client_name_safe = (
+            st.session_state.get('questions', {})
+            .get('client', {})
+            .get('answer', '')
+        )
+        client_address_safe = st.session_state.get('client_address', '')
         doc.add_heading('Client Information', level=1)
-        doc.add_paragraph(f'Client: {st.session_state.questions["client"]["answer"]}')
-        doc.add_paragraph(f'Address: {st.session_state.client_address}')
+        doc.add_paragraph(f'Client: {client_name_safe}')
+        doc.add_paragraph(f'Address: {client_address_safe}')
         
         # General Info (only if exists)
         if 'general_info' in st.session_state.questions:
@@ -1478,7 +1485,8 @@ def create_entries_record():
 
         # Calculate additional costs using the new per-deliverable structure
         total_deliverable_additional_costs = 0.0
-        for deliverable in st.session_state.deliverables.values():
+        deliverables_safe = st.session_state.get('deliverables', {})
+        for deliverable in deliverables_safe.values():
             if 'additional_costs' in deliverable:
                 additional_costs = deliverable['additional_costs']
                 
@@ -1519,7 +1527,8 @@ def create_entries_record():
                         total_deliverable_additional_costs += travel_data.get('amount', 0)
         
         # Calculate global additional costs (materials only)
-        materials_total = st.session_state.expenses.get('materials_cost', 0) * (1 + st.session_state.expenses.get('materials_markup', 0.25))
+        expenses_safe = st.session_state.get('expenses', {})
+        materials_total = expenses_safe.get('materials_cost', 0) * (1 + expenses_safe.get('materials_markup', 0.25))
         
         total_additional_costs = total_deliverable_additional_costs + materials_total
 
@@ -1537,9 +1546,10 @@ def create_entries_record():
         p = doc.add_paragraph()
         p.add_run(f"Total Additional Costs: ${total_additional_costs:,.2f}").bold = True
         p = doc.add_paragraph()
-        p.add_run(f"Total Labor Costs: ${st.session_state['total_labor_cost']:,.2f}").bold = True
+        total_labor_cost_safe = st.session_state.get('total_labor_cost', 0.0)
+        p.add_run(f"Total Labor Costs: ${total_labor_cost_safe:,.2f}").bold = True
         p = doc.add_paragraph()
-        p.add_run(f"Total Project Cost: ${(total_additional_costs + st.session_state['total_labor_cost']):,.2f}").bold = True
+        p.add_run(f"Total Project Cost: ${(total_additional_costs + total_labor_cost_safe):,.2f}").bold = True
 
         # Save with retry logic
         max_retries = 3
@@ -2792,13 +2802,31 @@ def main():
     # SOW Generation Section (moved to bottom)
     st.markdown("---")
     st.subheader("Generate Statement of Work")
-    
-    # Generate SOW button (always enabled)
-    if st.button("Generate Statement of Work", type="primary"):
-        # Clear any previous results to force regeneration
-        if 'sow_result' in st.session_state:
-            del st.session_state.sow_result
-        start_sow_generation()
+
+    # Show Generate button and always-available Download Entries side by side
+    gen_col, download_col = st.columns(2)
+
+    with gen_col:
+        # Generate SOW button (always enabled)
+        if st.button("Generate Statement of Work", type="primary"):
+            # Clear any previous results to force regeneration
+            if 'sow_result' in st.session_state:
+                del st.session_state.sow_result
+            start_sow_generation()
+
+    with download_col:
+        # Always-available entries record download
+        try:
+            entries_buffer = create_entries_record()
+            if entries_buffer:
+                st.download_button(
+                    label="Download Entries",
+                    data=entries_buffer.getvalue(),
+                    file_name=f"Entries_Record_{st.session_state.questions['client']['answer'].replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+        except Exception as e:
+            st.error(f"Error creating entries record: {str(e)}")
     
     # Display generated SOW or status
     if 'sow_result' in st.session_state:
@@ -2825,19 +2853,7 @@ def main():
                 except Exception as e:
                     st.error(f"Error creating DOCX: {str(e)}")
             
-            with col2:
-                # Entries record download
-                try:
-                    entries_buffer = create_entries_record()
-                    if entries_buffer:
-                        st.download_button(
-                            label="Download Entries Record",
-                            data=entries_buffer.getvalue(),
-                            file_name=f"Entries_Record_{st.session_state.questions['client']['answer'].replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                        )
-                except Exception as e:
-                    st.error(f"Error creating entries record: {str(e)}")
+            # Entries record download is now always available above next to Generate button
         
         elif st.session_state.sow_result['status'] == 'error':
             st.error(f"❌ Error generating SOW: {st.session_state.sow_result['error']}")
