@@ -1387,6 +1387,21 @@ def create_entries_record():
         doc.add_paragraph(f'Client: {client_name_safe}')
         doc.add_paragraph(f'Address: {client_address_safe}')
         
+        # Dates (record exactly what is in the form)
+        doc.add_heading('Dates', level=1)
+        effective_date_val = st.session_state.get('effective_date', '')
+        completion_date_val = st.session_state.get('expected_completion_date', '')
+        try:
+            effective_date_str = effective_date_val.strftime('%B %d, %Y') if hasattr(effective_date_val, 'strftime') else str(effective_date_val)
+        except Exception:
+            effective_date_str = str(effective_date_val)
+        try:
+            completion_date_str = completion_date_val.strftime('%B %d, %Y') if hasattr(completion_date_val, 'strftime') else str(completion_date_val)
+        except Exception:
+            completion_date_str = str(completion_date_val)
+        doc.add_paragraph(f'Effective Date: {effective_date_str}')
+        doc.add_paragraph(f'Expected Completion Date: {completion_date_str}')
+        
         # General Info (only if exists)
         if 'general_info' in st.session_state.questions:
             doc.add_heading('General Project Information', level=1)
@@ -1395,6 +1410,11 @@ def create_entries_record():
         
         # Project Details
         doc.add_heading('Project Details', level=1)
+        try:
+            num_deliverables_count = len(st.session_state.get('deliverables', {}))
+            doc.add_paragraph(f'Number of Deliverables: {num_deliverables_count}')
+        except Exception:
+            pass
 
         # Add Deliverables section (only if deliverables exist)
         if 'deliverables' in st.session_state and st.session_state.deliverables:
@@ -1453,6 +1473,62 @@ def create_entries_record():
                             p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
                             p.add_run("Total Labor Cost for Deliverable: ")
                             p.add_run(f"${total_deliverable_cost:,.2f}").bold = True
+
+                    # Record deliverable-specific additional costs in detail
+                    if deliverable.get('additional_costs'):
+                        ac = deliverable['additional_costs']
+                        doc.add_heading('Additional Costs (Deliverable)', level=3)
+
+                        # Equipment rentals
+                        if ac.get('equipment_rentals', {}).get('enabled', False):
+                            er = ac['equipment_rentals']
+                            doc.add_paragraph('Equipment Rentals:')
+                            items = er.get('items')
+                            if items:
+                                for idx, item in enumerate(items, 1):
+                                    desc = item.get('description', '')
+                                    if 'weeks' in item and 'rate_per_week' in item:
+                                        weeks = item.get('weeks', 0)
+                                        rpw = item.get('rate_per_week', 0)
+                                        total = (weeks or 0) * (rpw or 0)
+                                        doc.add_paragraph(f"  {idx}. {desc} — Weeks: {weeks}, Rate/Week: ${rpw:,.2f}, Total: ${total:,.2f}")
+                                    else:
+                                        amt = item.get('amount', 0)
+                                        doc.add_paragraph(f"  {idx}. {desc} — Amount: ${amt:,.2f}")
+                            else:
+                                # Old format
+                                amt = er.get('amount', 0)
+                                doc.add_paragraph(f"  Amount: ${amt:,.2f}")
+
+                        # Mileage
+                        if ac.get('mileage', {}).get('enabled', False):
+                            mi = ac['mileage']
+                            miles = mi.get('miles', 0)
+                            rate = mi.get('rate', 0)
+                            total = (miles or 0) * (rate or 0)
+                            doc.add_paragraph(f"Mileage: {miles} miles at ${rate:,.2f}/mile — Total: ${total:,.2f}")
+
+                        # Truck days
+                        if ac.get('truck_days', {}).get('enabled', False):
+                            td = ac['truck_days']
+                            days = td.get('days', 0)
+                            rate = td.get('rate', 0)
+                            total = (days or 0) * (rate or 0)
+                            doc.add_paragraph(f"Truck Days: {days} days at ${rate:,.2f}/day — Total: ${total:,.2f}")
+
+                        # Travel
+                        if ac.get('travel', {}).get('enabled', False):
+                            tr = ac['travel']
+                            doc.add_paragraph('Travel:')
+                            items = tr.get('items')
+                            if items:
+                                for idx, item in enumerate(items, 1):
+                                    desc = item.get('description', '')
+                                    amt = item.get('amount', 0)
+                                    doc.add_paragraph(f"  {idx}. {desc} — Amount: ${amt:,.2f}")
+                            else:
+                                amt = tr.get('amount', 0)
+                                doc.add_paragraph(f"  Amount: ${amt:,.2f}")
 
         # Technical Requirements section
         tech_req = st.session_state.get('tech_req', 'No')
@@ -1540,6 +1616,31 @@ def create_entries_record():
             doc.add_paragraph(f"Deliverable-Specific Additional Costs: ${total_deliverable_additional_costs:,.2f}")
         if materials_total > 0:
             doc.add_paragraph(f"Global Materials Total: ${materials_total:,.2f}")
+
+        # Materials details (project-wide)
+        doc.add_heading('Materials (Project-wide)', level=1)
+        materials_desc = expenses_safe.get('materials_description', '')
+        doc.add_paragraph(f"Description: {materials_desc}")
+        doc.add_paragraph(f"Base Cost: ${expenses_safe.get('materials_cost', 0):,.2f}")
+        doc.add_paragraph(f"Markup: {expenses_safe.get('materials_markup', 0.25) * 100:.0f}%")
+        doc.add_paragraph(f"Materials Total: ${materials_total:,.2f}")
+
+        # SOW Options
+        doc.add_heading('SOW Options', level=1)
+        doc.add_paragraph(f"Include additional terms and conditions: {bool(st.session_state.get('has_additional_terms', False))}")
+        doc.add_paragraph(f"Additional Terms: {st.session_state.get('additional_terms', '')}")
+
+        # Uploaded schedules (filenames)
+        doc.add_heading('Attached SOW Schedules (filenames)', level=1)
+        uploads = st.session_state.get('attached_schedules', [])
+        if uploads:
+            for f in uploads:
+                try:
+                    doc.add_paragraph(f"- {getattr(f, 'name', str(f))}")
+                except Exception:
+                    doc.add_paragraph("- [Unrecognized file]")
+        else:
+            doc.add_paragraph('None')
 
         # Final Totals
         doc.add_paragraph()
