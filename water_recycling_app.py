@@ -1754,16 +1754,25 @@ def create_entries_record():
         doc.add_paragraph(f"Record generated: {datetime.datetime.now().strftime('%B %d, %Y at %I:%M:%S %p')}")
         doc.add_paragraph("This record contains ALL data entered in the SOW Generator form.")
 
-        # Save with retry logic
+        # Save with retry logic and better error handling
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 doc.save(buffer)
                 buffer.seek(0)
+                
+                # Verify buffer has content
+                buffer_size = len(buffer.getvalue())
+                if buffer_size == 0:
+                    raise Exception("Generated document buffer is empty")
+                
+                # Reset buffer position for reading
+                buffer.seek(0)
                 return buffer
+                
             except Exception as save_error:
                 if attempt == max_retries - 1:  # Last attempt
-                    raise save_error
+                    raise Exception(f"Failed to save document after {max_retries} attempts: {str(save_error)}")
                 time.sleep(0.5)  # Short delay before retry
                 
     except Exception as e:
@@ -3025,10 +3034,22 @@ def main():
         try:
             entries_buffer = create_entries_record()
             if entries_buffer:
+                # Safe filename generation
+                try:
+                    client_name = st.session_state.questions['client']['answer']
+                    safe_client_name = re.sub(r'[^\w\s-]', '', client_name).strip()
+                    safe_client_name = re.sub(r'[-\s]+', '_', safe_client_name)
+                    if not safe_client_name:
+                        safe_client_name = "Client"
+                except:
+                    safe_client_name = "Client"
+                
+                filename = f"Entries_Record_{safe_client_name}_{datetime.datetime.now().strftime('%Y%m%d')}.docx"
+                
                 st.download_button(
                     label="Download Entries",
                     data=entries_buffer.getvalue(),
-                    file_name=f"Entries_Record_{st.session_state.questions['client']['answer'].replace(' ', '_')}_{datetime.datetime.now().strftime('%Y%m%d')}.docx",
+                    file_name=filename,
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
         except Exception as e:
