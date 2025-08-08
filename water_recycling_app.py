@@ -1718,7 +1718,7 @@ def create_entries_record():
                 row_cells = rates_table.add_row().cells
                 row_cells[0].text = role
                 
-                # Handle rate safely - it might be a list or other type
+                # Handle rate safely - it might be a list or other type (force redeploy)
                 try:
                     if isinstance(rate, (list, tuple)):
                         # If it's a list, take the first numeric value
