@@ -1666,13 +1666,16 @@ def create_entries_record():
         if materials_total > 0:
             doc.add_paragraph(f"Global Materials Total: ${materials_total:,.2f}")
 
-        # Materials details (project-wide)
-        doc.add_heading('Materials (Project-wide)', level=1)
+        # Material Costs (match UI presentation)
+        doc.add_heading('Material Costs', level=1)
+        doc.add_paragraph('These are project-wide costs not specific to any deliverable')
+        doc.add_paragraph()
+        
         materials_desc = expenses_safe.get('materials_description', '')
-        doc.add_paragraph(f"Description: {materials_desc}")
-        doc.add_paragraph(f"Base Cost: ${expenses_safe.get('materials_cost', 0):,.2f}")
-        doc.add_paragraph(f"Markup: {expenses_safe.get('materials_markup', 0.25) * 100:.0f}%")
+        doc.add_paragraph(f"Materials Description: {materials_desc if materials_desc else '[None specified]'}")
+        doc.add_paragraph(f"Materials Cost (+ 25% markup): ${expenses_safe.get('materials_cost', 0):,.2f}")
         doc.add_paragraph(f"Materials Total: ${materials_total:,.2f}")
+        doc.add_paragraph(f"Material Costs (project-wide): ${materials_total:,.2f}")
 
         # SOW Options
         doc.add_heading('SOW Options', level=1)
@@ -1741,26 +1744,6 @@ def create_entries_record():
         p.add_run(f"Total Labor Costs: ${total_labor_cost_safe:,.2f}").bold = True
         p = doc.add_paragraph()
         p.add_run(f"Total Project Cost: ${(total_additional_costs + total_labor_cost_safe):,.2f}").bold = True
-        
-        # Comprehensive Form Data Summary
-        doc.add_heading('Complete Form Data Summary', level=1)
-        doc.add_paragraph('This section captures ALL form selections and inputs:')
-        
-        # Session state keys summary
-        doc.add_paragraph(f"Session State Keys Count: {len(st.session_state.keys())}")
-        
-        # Key form selections
-        doc.add_paragraph('Key Form Selections:')
-        doc.add_paragraph(f"• Technical Requirements: {st.session_state.get('tech_req', 'Not set')}")
-        doc.add_paragraph(f"• Has Additional Terms: {st.session_state.get('has_additional_terms', False)}")
-        doc.add_paragraph(f"• Total Labor Cost Calculated: ${st.session_state.get('total_labor_cost', 0):,.2f}")
-        # Safe materials markup calculation
-        try:
-            materials_markup = st.session_state.get('expenses', {}).get('materials_markup', 0)
-            markup_percentage = float(materials_markup) * 100
-            doc.add_paragraph(f"• Materials Markup: {markup_percentage:.1f}%")
-        except Exception:
-            doc.add_paragraph(f"• Materials Markup: [Error calculating]")
         
         # Timestamp
         doc.add_paragraph()
