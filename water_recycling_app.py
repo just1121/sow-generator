@@ -1443,16 +1443,36 @@ def create_entries_record():
                 if deliverable.get('description'):
                     doc.add_heading(f'Deliverable {key.split("_")[1]}', level=2)
                     doc.add_paragraph(f'Description: {deliverable["description"]}')
-                    doc.add_paragraph(f'Target Completion Date: {deliverable["target_date"].strftime("%B %d, %Y")}')
+                    
+                    # Safe date formatting for target date
+                    try:
+                        target_date = deliverable["target_date"]
+                        if hasattr(target_date, 'strftime'):
+                            target_date_str = target_date.strftime("%B %d, %Y")
+                        else:
+                            target_date_str = str(target_date)
+                    except Exception:
+                        target_date_str = str(deliverable.get("target_date", "Not specified"))
+                    doc.add_paragraph(f'Target Completion Date: {target_date_str}')
                     
                     # Add Milestones
                     if deliverable.get('milestones'):
                         doc.add_heading('Milestones', level=3)
                         for i, milestone in enumerate(deliverable['milestones'], 1):
+                            # Safe date formatting for milestone
+                            try:
+                                due_date = milestone["due_date"]
+                                if hasattr(due_date, 'strftime'):
+                                    due_date_str = due_date.strftime("%B %d, %Y")
+                                else:
+                                    due_date_str = str(due_date)
+                            except Exception:
+                                due_date_str = str(milestone.get("due_date", "Not specified"))
+                            
                             doc.add_paragraph(
                                 f'Milestone {i}:\n'
                                 f'Description: {milestone["description"]}\n'
-                                f'Target Completion Date: {milestone["due_date"].strftime("%B %d, %Y")}'
+                                f'Target Completion Date: {due_date_str}'
                             )
                     
                     # Add Equipment and Additional Services (comprehensive)
@@ -1721,7 +1741,13 @@ def create_entries_record():
         doc.add_paragraph(f"• Technical Requirements: {st.session_state.get('tech_req', 'Not set')}")
         doc.add_paragraph(f"• Has Additional Terms: {st.session_state.get('has_additional_terms', False)}")
         doc.add_paragraph(f"• Total Labor Cost Calculated: ${st.session_state.get('total_labor_cost', 0):,.2f}")
-        doc.add_paragraph(f"• Materials Markup: {st.session_state.get('expenses', {}).get('materials_markup', 0)*100:.1f}%")
+        # Safe materials markup calculation
+        try:
+            materials_markup = st.session_state.get('expenses', {}).get('materials_markup', 0)
+            markup_percentage = float(materials_markup) * 100
+            doc.add_paragraph(f"• Materials Markup: {markup_percentage:.1f}%")
+        except Exception:
+            doc.add_paragraph(f"• Materials Markup: [Error calculating]")
         
         # Timestamp
         doc.add_paragraph()
@@ -1741,7 +1767,10 @@ def create_entries_record():
                 time.sleep(0.5)  # Short delay before retry
                 
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         st.error(f"Error creating entries record: {str(e)}")
+        st.error(f"Full error details: {error_details}")
         return None
 
 def transcribe_audio(audio_content, sample_rate_hertz=16000):
