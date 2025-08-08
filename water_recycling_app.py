@@ -1430,7 +1430,9 @@ def create_entries_record():
             # Record the actual deliverable numbers/keys that exist
             deliverable_keys = list(st.session_state.get('deliverables', {}).keys())
             if deliverable_keys:
-                doc.add_paragraph(f'Deliverable Keys: {", ".join(deliverable_keys)}')
+                # Convert all keys to strings to avoid format errors
+                deliverable_keys_str = [str(key) for key in deliverable_keys]
+                doc.add_paragraph(f'Deliverable Keys: {", ".join(deliverable_keys_str)}')
         except Exception:
             pass
 
