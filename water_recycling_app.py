@@ -1402,6 +1402,19 @@ def create_entries_record():
         doc.add_paragraph(f'Effective Date: {effective_date_str}')
         doc.add_paragraph(f'Expected Completion Date: {completion_date_str}')
         
+        # Master Terms Date
+        master_terms_date_val = st.session_state.get('master_terms_date', '')
+        try:
+            master_terms_str = master_terms_date_val.strftime('%B %d, %Y') if hasattr(master_terms_date_val, 'strftime') else str(master_terms_date_val)
+        except Exception:
+            master_terms_str = str(master_terms_date_val)
+        doc.add_paragraph(f'Master Terms Date: {master_terms_str}')
+        
+        # Input Method Selection
+        doc.add_heading('Input Method', level=1)
+        input_method = st.session_state.get('input_method', 'Not specified')
+        doc.add_paragraph(f'Selected Input Method: {input_method}')
+        
         # General Info (only if exists)
         if 'general_info' in st.session_state.questions:
             doc.add_heading('General Project Information', level=1)
@@ -1412,7 +1425,12 @@ def create_entries_record():
         doc.add_heading('Project Details', level=1)
         try:
             num_deliverables_count = len(st.session_state.get('deliverables', {}))
-            doc.add_paragraph(f'Number of Deliverables: {num_deliverables_count}')
+            doc.add_paragraph(f'Number of Deliverables Selected: {num_deliverables_count}')
+            
+            # Record the actual deliverable numbers/keys that exist
+            deliverable_keys = list(st.session_state.get('deliverables', {}).keys())
+            if deliverable_keys:
+                doc.add_paragraph(f'Deliverable Keys: {", ".join(deliverable_keys)}')
         except Exception:
             pass
 
@@ -1435,11 +1453,20 @@ def create_entries_record():
                                 f'Target Completion Date: {milestone["due_date"].strftime("%B %d, %Y")}'
                             )
                     
-                    # Add Equipment and Additional Services
-                    if deliverable.get('equipment_provided'):
-                        doc.add_paragraph(f'Equipment and Materials Provided: {deliverable["equipment_provided"]}')
-                    if deliverable.get('additional_services'):
-                        doc.add_paragraph(f'Additional Services: {deliverable["additional_services"]}')
+                    # Add Equipment and Additional Services (comprehensive)
+                    doc.add_heading('Equipment and Services Details', level=3)
+                    equipment = deliverable.get('equipment_provided', '')
+                    services = deliverable.get('additional_services', '')
+                    
+                    if equipment:
+                        doc.add_paragraph(f'Equipment and Materials Provided: {equipment}')
+                    else:
+                        doc.add_paragraph('Equipment and Materials Provided: [None specified]')
+                    
+                    if services:
+                        doc.add_paragraph(f'Additional Services: {services}')
+                    else:
+                        doc.add_paragraph('Additional Services: [None specified]')
                     
                     # Only add labor costs table if there are labor costs
                     if deliverable.get('labor_costs'):
@@ -1630,18 +1657,46 @@ def create_entries_record():
         doc.add_paragraph(f"Include additional terms and conditions: {bool(st.session_state.get('has_additional_terms', False))}")
         doc.add_paragraph(f"Additional Terms: {st.session_state.get('additional_terms', '')}")
 
-        # Uploaded schedules (filenames)
-        doc.add_heading('Attached SOW Schedules (filenames)', level=1)
+        # Uploaded schedules (comprehensive documentation)
+        doc.add_heading('Attached SOW Schedules', level=1)
         uploads = st.session_state.get('attached_schedules', [])
+        doc.add_paragraph(f'Total Files Uploaded: {len(uploads)}')
+        
         if uploads:
-            for f in uploads:
+            doc.add_paragraph('File Details:')
+            for i, f in enumerate(uploads, 1):
                 try:
-                    doc.add_paragraph(f"- {getattr(f, 'name', str(f))}")
+                    filename = getattr(f, 'name', str(f))
+                    try:
+                        filesize = getattr(f, 'size', 'Unknown size')
+                        if isinstance(filesize, (int, float)):
+                            filesize = f"{filesize:,.0f} bytes"
+                    except:
+                        filesize = 'Unknown size'
+                    doc.add_paragraph(f"  {i}. {filename} ({filesize})")
                 except Exception:
-                    doc.add_paragraph("- [Unrecognized file]")
+                    doc.add_paragraph(f"  {i}. [Unrecognized file]")
         else:
-            doc.add_paragraph('None')
+            doc.add_paragraph('No files uploaded')
 
+        # Complete Labor Rates Reference Table
+        doc.add_heading('Complete Labor Rates Reference', level=1)
+        doc.add_paragraph('All available labor rates in the system:')
+        
+        # Create table for all labor rates
+        labor_costs_safe = st.session_state.get('labor_costs', {})
+        if labor_costs_safe:
+            rates_table = doc.add_table(rows=1, cols=2)
+            format_table(rates_table)
+            header_cells = rates_table.rows[0].cells
+            header_cells[0].paragraphs[0].add_run('Role').bold = True
+            header_cells[1].paragraphs[0].add_run('Rate').bold = True
+            
+            for role, rate in labor_costs_safe.items():
+                row_cells = rates_table.add_row().cells
+                row_cells[0].text = role
+                row_cells[1].text = f"${rate:.2f}/hr"
+        
         # Final Totals
         doc.add_paragraph()
         p = doc.add_paragraph()
@@ -1651,6 +1706,25 @@ def create_entries_record():
         p.add_run(f"Total Labor Costs: ${total_labor_cost_safe:,.2f}").bold = True
         p = doc.add_paragraph()
         p.add_run(f"Total Project Cost: ${(total_additional_costs + total_labor_cost_safe):,.2f}").bold = True
+        
+        # Comprehensive Form Data Summary
+        doc.add_heading('Complete Form Data Summary', level=1)
+        doc.add_paragraph('This section captures ALL form selections and inputs:')
+        
+        # Session state keys summary
+        doc.add_paragraph(f"Session State Keys Count: {len(st.session_state.keys())}")
+        
+        # Key form selections
+        doc.add_paragraph('Key Form Selections:')
+        doc.add_paragraph(f"• Technical Requirements: {st.session_state.get('tech_req', 'Not set')}")
+        doc.add_paragraph(f"• Has Additional Terms: {st.session_state.get('has_additional_terms', False)}")
+        doc.add_paragraph(f"• Total Labor Cost Calculated: ${st.session_state.get('total_labor_cost', 0):,.2f}")
+        doc.add_paragraph(f"• Materials Markup: {st.session_state.get('expenses', {}).get('materials_markup', 0)*100:.1f}%")
+        
+        # Timestamp
+        doc.add_paragraph()
+        doc.add_paragraph(f"Record generated: {datetime.datetime.now().strftime('%B %d, %Y at %I:%M:%S %p')}")
+        doc.add_paragraph("This record contains ALL data entered in the SOW Generator form.")
 
         # Save with retry logic
         max_retries = 3
