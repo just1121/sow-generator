@@ -1,16 +1,14 @@
-name: "Security Checks"
+name: "Security Dependency Scan"
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
     branches: [ "main" ]
   schedule:
     - cron: '0 2 * * 1'  # Weekly on Mondays at 2 AM UTC
 
 jobs:
-  security-scan:
-    name: Security Vulnerability Scan
+  dependency-scan:
+    name: Python Dependency Security Scan
     runs-on: ubuntu-latest
     
     steps:
