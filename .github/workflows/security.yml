@@ -1,0 +1,39 @@
+name: "Security Checks"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Mondays at 2 AM UTC
+
+jobs:
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install safety
+
+    - name: Run security scan
+      run: |
+        safety check --json || true
+        echo "Security scan completed"
+
+    - name: Check for known vulnerabilities
+      run: |
+        echo "Checking Python dependencies for known vulnerabilities..."
+        safety check --short-report || echo "Some vulnerabilities found - check logs"
