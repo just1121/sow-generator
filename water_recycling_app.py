@@ -2214,9 +2214,6 @@ def main():
 
     with col2:
         st.markdown("<h1 style='text-align: center;'>Statement of Work Generators</h1>", unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("<h1 style='text-align: right; font-size: 60px;'>😊</h1>", unsafe_allow_html=True)
 
     st.markdown("---")
     
