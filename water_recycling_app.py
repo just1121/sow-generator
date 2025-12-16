@@ -2205,7 +2205,10 @@ def main():
             st.error(f"Logo not found. Please ensure 'RecWater-Solutions-Logo-1.png' is in the 'static' folder.")
 
     with col2:
-        st.markdown("<h1 style='text-align: center;'>Statement of Work Generator</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center;'>Statement of Work Generators</h1>", unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("<h1 style='text-align: right; font-size: 60px;'>😊</h1>", unsafe_allow_html=True)
 
     st.markdown("---")
     
