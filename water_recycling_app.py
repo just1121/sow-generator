@@ -394,11 +394,11 @@ def create_document(content, file_format):
                     "The estimated cost for completion of this Statement of Work",
                     "Efforts not explicitly listed in the table below",
                     "**Additional Expenses**",
-                    "**Additional Costs for Deliverable",
+                    "**Additional Values for Deliverable",
                     "**Additional Project Costs**",
                     "**Total Materials:",
                     "**Labor Values by Deliverable:**",
-                    "**Additional Costs by Deliverable:**",
+                    "**Additional Values by Deliverable:**",
                     "**Materials:**",
                     "**Project Summary:**",
                     "Project Totals",
@@ -665,7 +665,7 @@ def create_document(content, file_format):
                             # Always show Additional Costs section
                             doc.add_paragraph()  # Add space
                             p_add_subheader = doc.add_paragraph()
-                            run_add_subheader = p_add_subheader.add_run("Additional Costs")
+                            run_add_subheader = p_add_subheader.add_run("Additional Values")
                             apply_base_heading_style(run_add_subheader)
                             run_add_subheader.bold = True
                             run_add_subheader.underline = True
@@ -767,7 +767,7 @@ def create_document(content, file_format):
                             else:
                                 # Add a row indicating no additional costs
                                 row_cells = add_table.add_row().cells
-                                row_cells[0].text = "No additional costs"
+                                row_cells[0].text = "No additional values"
                                 row_cells[1].text = ""
                                 row_cells[2].text = "$0.00"
 
@@ -775,7 +775,7 @@ def create_document(content, file_format):
                             doc.add_paragraph()  # Add space
                             p_add_total = doc.add_paragraph()
                             p_add_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                            p_add_total.add_run("Additional Costs Subtotal: ")
+                            p_add_total.add_run("Additional Values Subtotal: ")
                             p_add_total.add_run(f"${deliverable_additional_total:,.0f}").bold = True
                             
                             # Calculate total cost for this deliverable
@@ -878,12 +878,12 @@ def create_document(content, file_format):
                                 p_labor_item = doc.add_paragraph()
                                 p_labor_item.add_run(f"• Deliverable {deliverable_data['number']}: ${deliverable_data['labor_cost']:,.0f}")
                         
-                        # Additional Costs by Deliverable
+                        # Additional Values by Deliverable
                         total_deliverable_additional_costs = sum(d['additional_cost'] for d in deliverable_totals)
                         if total_deliverable_additional_costs > 0:
                             doc.add_paragraph()  # Add space
                             p_additional_breakdown_header = doc.add_paragraph()
-                            run_additional_breakdown_header = p_additional_breakdown_header.add_run("Additional Costs by Deliverable:")
+                            run_additional_breakdown_header = p_additional_breakdown_header.add_run("Additional Values by Deliverable:")
                             apply_base_heading_style(run_additional_breakdown_header)
                             run_additional_breakdown_header.bold = True
                             
@@ -928,7 +928,7 @@ def create_document(content, file_format):
                         
                         if total_additional_cost > 0:
                             row_cells = summary_table.add_row().cells
-                            row_cells[0].text = 'Total Additional Costs'
+                            row_cells[0].text = 'Total Additional Value'
                             row_cells[1].text = f'${total_additional_cost:,.0f}'
                         
                         if materials_total > 0:
@@ -1534,7 +1534,7 @@ def create_entries_record():
                     # Record deliverable-specific additional costs in detail
                     if deliverable.get('additional_costs'):
                         ac = deliverable['additional_costs']
-                        doc.add_heading('Additional Costs (Deliverable)', level=3)
+                        doc.add_heading('Additional Values (Deliverable)', level=3)
 
                         # Equipment rentals
                         if ac.get('equipment_rentals', {}).get('enabled', False):
@@ -1746,7 +1746,7 @@ def create_entries_record():
         # Final Totals
         doc.add_paragraph()
         p = doc.add_paragraph()
-        p.add_run(f"Total Additional Costs: ${total_additional_costs:,.0f}").bold = True
+        p.add_run(f"Total Additional Value: ${total_additional_costs:,.0f}").bold = True
         p = doc.add_paragraph()
         total_labor_cost_safe = st.session_state.get('total_labor_cost', 0.0)
         p.add_run(f"Total Labor Values: ${total_labor_cost_safe:,.0f}").bold = True
@@ -1989,7 +1989,7 @@ def generate_section_5_costs():
                     additional_costs.get('travel', {}).get('enabled', False)):
                     
                     has_additional_costs = True
-                    section += f"**Additional Costs for Deliverable {i}**\n\n"
+                    section += f"**Additional Values for Deliverable {i}**\n\n"
                     section += "| Cost Type | Description | Amount |\n"
                     section += "|-----------|-------------|--------|\n"
                     
@@ -2089,7 +2089,7 @@ def generate_section_5_costs():
     
     # Additional costs breakdown by deliverable
     if total_deliverable_additional_costs > 0:
-        section += f"\n**Additional Costs by Deliverable:**\n\n"
+        section += f"\n**Additional Values by Deliverable:**\n\n"
         for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
             deliverable_additional_cost = 0.0
             if 'additional_costs' in deliverable:
@@ -2138,7 +2138,7 @@ def generate_section_5_costs():
     section += "| Category | Amount |\n"
     section += "|----------|--------|\n"
     section += f"| Total Labor Values | ${total_labor_cost:,.0f} |\n"
-    section += f"| Total Additional Costs | ${total_deliverable_additional_costs:,.0f} |\n"
+    section += f"| Total Additional Value | ${total_deliverable_additional_costs:,.0f} |\n"
     if materials_total > 0:
         section += f"| Total Materials Costs | ${materials_total:,.0f} |\n"
     section += f"| **Total Project Value** | **${total_project_cost:,.0f}** |\n\n"
@@ -2729,7 +2729,7 @@ def main():
             
             # Show deliverable additional costs total
             if deliverable_additional_total > 0:
-                st.markdown(f"**Additional Costs for Deliverable {i + 1}: ${deliverable_additional_total:,.0f}**")
+                st.markdown(f"**Additional Values for Deliverable {i + 1}: ${deliverable_additional_total:,.0f}**")
 
         # Labor Categories expander for this deliverable
         with st.expander(f"Labor Categories - Deliverable {i + 1}"):
@@ -2970,7 +2970,7 @@ def main():
     with col1:
         st.markdown("**Category**")
         st.markdown("Total Labor Values")
-        st.markdown("Total Deliverable Additional Costs") 
+        st.markdown("Total Deliverable Additional Values") 
         st.markdown("Material Costs (project-wide)")
         st.markdown("---")
         st.markdown("**GRAND TOTAL**")
