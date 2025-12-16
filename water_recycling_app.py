@@ -865,45 +865,8 @@ def create_document(content, file_format):
                     # Add spacing after table
                     doc.add_paragraph()
                     
-                    # Add detailed breakdown sections
+                    # Project Summary
                     if deliverable_totals:
-                        # Labor Values by Deliverable
-                        p_labor_breakdown_header = doc.add_paragraph()
-                        run_labor_breakdown_header = p_labor_breakdown_header.add_run("Labor Values by Deliverable:")
-                        apply_base_heading_style(run_labor_breakdown_header)
-                        run_labor_breakdown_header.bold = True
-                        
-                        for deliverable_data in deliverable_totals:
-                            if deliverable_data['labor_cost'] > 0:
-                                p_labor_item = doc.add_paragraph()
-                                p_labor_item.add_run(f"• Deliverable {deliverable_data['number']}: ${deliverable_data['labor_cost']:,.0f}")
-                        
-                        # Additional Values by Deliverable
-                        total_deliverable_additional_costs = sum(d['additional_cost'] for d in deliverable_totals)
-                        if total_deliverable_additional_costs > 0:
-                            doc.add_paragraph()  # Add space
-                            p_additional_breakdown_header = doc.add_paragraph()
-                            run_additional_breakdown_header = p_additional_breakdown_header.add_run("Additional Values by Deliverable:")
-                            apply_base_heading_style(run_additional_breakdown_header)
-                            run_additional_breakdown_header.bold = True
-                            
-                            for deliverable_data in deliverable_totals:
-                                if deliverable_data['additional_cost'] > 0:
-                                    p_additional_item = doc.add_paragraph()
-                                    p_additional_item.add_run(f"• Deliverable {deliverable_data['number']}: ${deliverable_data['additional_cost']:,.0f}")
-                        
-                        # Materials section
-                        if materials_total > 0:
-                            doc.add_paragraph()  # Add space
-                            p_materials_breakdown_header = doc.add_paragraph()
-                            run_materials_breakdown_header = p_materials_breakdown_header.add_run("Materials:")
-                            apply_base_heading_style(run_materials_breakdown_header)
-                            run_materials_breakdown_header.bold = True
-                            
-                            p_materials_item = doc.add_paragraph()
-                            p_materials_item.add_run(f"• Materials: ${materials_total:,.0f}")
-                        
-                        # Project Summary
                         doc.add_paragraph()  # Add space
                         p_summary_header = doc.add_paragraph()
                         run_summary_header = p_summary_header.add_run("Project Summary:")
@@ -2075,65 +2038,7 @@ def generate_section_5_costs():
         section += f"| Total Materials Costs | {details_text} | ${materials_total:,.0f} |\n"
         section += f"\n**Total Materials: ${materials_total:,.0f}**\n\n"
     
-    # Add detailed project totals breakdown
-    section += "\n**Project Totals**\n\n"
-    
-    # Labor Values breakdown by deliverable
-    section += "**Labor Values by Deliverable:**\n\n"
-    for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
-        if isinstance(deliverable.get('labor_costs'), dict):
-            del_labor_total = sum(details['total'] for details in deliverable['labor_costs'].values() 
-                                if isinstance(details, dict))
-            if del_labor_total > 0:
-                section += f"- Deliverable {i}: ${del_labor_total:,.0f}\n"
-    
-    # Additional costs breakdown by deliverable
-    if total_deliverable_additional_costs > 0:
-        section += f"\n**Additional Values by Deliverable:**\n\n"
-        for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
-            deliverable_additional_cost = 0.0
-            if 'additional_costs' in deliverable:
-                additional_costs = deliverable['additional_costs']
-                
-                # Equipment rentals
-                if additional_costs.get('equipment_rentals', {}).get('enabled', False):
-                    equipment_rentals = additional_costs['equipment_rentals']
-                    if 'items' in equipment_rentals:
-                        for item in equipment_rentals['items']:
-                            if 'weeks' in item and 'rate_per_week' in item:
-                                deliverable_additional_cost += item.get('weeks', 1) * item.get('rate_per_week', 0)
-                            else:
-                                deliverable_additional_cost += item.get('amount', 0)
-                    else:
-                        deliverable_additional_cost += equipment_rentals.get('amount', 0)
-                
-                # Mileage
-                if additional_costs.get('mileage', {}).get('enabled', False):
-                    deliverable_additional_cost += (additional_costs['mileage']['miles'] * 
-                                                   additional_costs['mileage']['rate'])
-                
-                # Truck days
-                if additional_costs.get('truck_days', {}).get('enabled', False):
-                    deliverable_additional_cost += (additional_costs['truck_days']['days'] * 
-                                                   additional_costs['truck_days']['rate'])
-                
-                # Travel
-                if additional_costs.get('travel', {}).get('enabled', False):
-                    travel_data = additional_costs['travel']
-                    if 'items' in travel_data:
-                        deliverable_additional_cost += sum(item.get('amount', 0) for item in travel_data['items'])
-                    else:
-                        deliverable_additional_cost += travel_data.get('amount', 0)
-            
-            if deliverable_additional_cost > 0:
-                section += f"- Deliverable {i}: ${deliverable_additional_cost:,.0f}\n"
-    
-    # Materials costs as separate section
-    if materials_total > 0:
-        section += f"\n**Materials:**\n\n"
-        section += f"- Materials: ${materials_total:,.0f}\n"
-    
-    # Project Summary Table - moved to the very end
+    # Project Summary Table
     section += f"\n**Project Summary:**\n\n"
     section += "| Category | Amount |\n"
     section += "|----------|--------|\n"
