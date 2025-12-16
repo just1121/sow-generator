@@ -784,7 +784,7 @@ def create_document(content, file_format):
                             # Add total cost for deliverable
                             p_deliverable_total = doc.add_paragraph()
                             p_deliverable_total.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                            p_deliverable_total.add_run(f"Total Cost for Deliverable {i} (Labor + Additional): ")
+                            p_deliverable_total.add_run(f"Total Value for Deliverable {i} (Labor + Additional): ")
                             p_deliverable_total.add_run(f"${total_deliverable_all_costs:,.0f}").bold = True
                             
                             # Track for summary
