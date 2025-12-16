@@ -387,7 +387,7 @@ def create_document(content, file_format):
                 # Skip any content between Sections 5 and 6
                 if any(marker in paragraph for marker in [
                     "| Role |",
-                    "Total Labor Cost for Deliverable",
+                    "Total Labor Value for Deliverable",
                     "**Deliverable",
                     "|------|",
                     "|------",
@@ -397,7 +397,7 @@ def create_document(content, file_format):
                     "**Additional Costs for Deliverable",
                     "**Additional Project Costs**",
                     "**Total Materials:",
-                    "**Labor Costs by Deliverable:**",
+                    "**Labor Values by Deliverable:**",
                     "**Additional Costs by Deliverable:**",
                     "**Materials:**",
                     "**Project Summary:**",
@@ -478,9 +478,9 @@ def create_document(content, file_format):
                                         milestone_date = milestone.get('due_date')
                                         if milestone_date:
                                             milestone_date_str = milestone_date.strftime('%B %d, %Y')
-                                            milestone_text = f"- Milestone {j}: {milestone.get('description')} by {milestone_date_str}"
+                                            milestone_text = f"- Milestone {j}:     {milestone.get('description')} by {milestone_date_str}"
                                         else:
-                                            milestone_text = f"- Milestone {j}: {milestone.get('description')} (No date provided)"
+                                            milestone_text = f"- Milestone {j}:     {milestone.get('description')} (No date provided)"
                                         
                                         p_milestone = doc.add_paragraph()
                                         add_markdown_runs(p_milestone, milestone_text, apply_base_body_style)
@@ -593,7 +593,7 @@ def create_document(content, file_format):
                     p_narrative = doc.add_paragraph()
                     add_markdown_runs(p_narrative, narrative, apply_base_body_style)
                     
-                    # Add deliverable labor cost tables and their additional costs
+                    # Add deliverable labor value tables and their additional costs
                     deliverable_totals = []  # Track total costs for each deliverable
                     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
                         if isinstance(deliverable.get('labor_costs'), dict):
@@ -603,9 +603,9 @@ def create_document(content, file_format):
                             apply_base_heading_style(run_del_header)
                             run_del_header.bold = True
 
-                            # LABOR COSTS TABLE
+                            # LABOR VALUES TABLE
                             p_labor_subheader = doc.add_paragraph()
-                            run_labor_subheader = p_labor_subheader.add_run("Labor Costs")
+                            run_labor_subheader = p_labor_subheader.add_run("Labor Values")
                             apply_base_heading_style(run_labor_subheader)
                             run_labor_subheader.bold = True
                             run_labor_subheader.underline = True
@@ -633,9 +633,9 @@ def create_document(content, file_format):
                                     total_deliverable_labor_cost += details['total']
                             
                             if not has_labor_entries:
-                                # Add a row indicating no labor costs
+                                # Add a row indicating no labor values
                                 row_cells = table.add_row().cells
-                                row_cells[0].text = "No labor costs assigned"
+                                row_cells[0].text = "No labor values assigned"
                                 row_cells[1].text = ""
                                 row_cells[2].text = ""
                                 row_cells[3].text = ""
@@ -867,9 +867,9 @@ def create_document(content, file_format):
                     
                     # Add detailed breakdown sections
                     if deliverable_totals:
-                        # Labor Costs by Deliverable
+                        # Labor Values by Deliverable
                         p_labor_breakdown_header = doc.add_paragraph()
-                        run_labor_breakdown_header = p_labor_breakdown_header.add_run("Labor Costs by Deliverable:")
+                        run_labor_breakdown_header = p_labor_breakdown_header.add_run("Labor Values by Deliverable:")
                         apply_base_heading_style(run_labor_breakdown_header)
                         run_labor_breakdown_header.bold = True
                         
@@ -923,7 +923,7 @@ def create_document(content, file_format):
                         
                         # Add rows
                         row_cells = summary_table.add_row().cells
-                        row_cells[0].text = 'Total Labor Costs'
+                        row_cells[0].text = 'Total Labor Values'
                         row_cells[1].text = f'${total_labor_cost:,.0f}'
                         
                         if total_additional_cost > 0:
@@ -939,7 +939,7 @@ def create_document(content, file_format):
                         row_cells = summary_table.add_row().cells
                         p1 = row_cells[0].paragraphs[0]
                         p2 = row_cells[1].paragraphs[0]
-                        p1.add_run('Total Project Cost').bold = True
+                        p1.add_run('Total Project Value').bold = True
                         p2.add_run(f'${grand_total:,.0f}').bold = True
                     
                     doc.add_paragraph()  # Add spacing after Section 5
@@ -1073,7 +1073,7 @@ def format_technical_requirements():
     return requirements.strip()
 
 def format_labor_costs():
-    """Format labor costs for all deliverables"""
+    """Format labor values for all deliverables"""
     labor_lines = []
     total_cost = 0
     
@@ -1086,7 +1086,7 @@ def format_labor_costs():
             # Add deliverable header
             labor_lines.append(f"\nDeliverable {i+1}: {deliverable['description']}")
             
-            # Add labor costs for this deliverable
+            # Add labor values for this deliverable
             for role, details in deliverable.get('labor_costs', {}).items():
                 if details['hours'] > 0:
                     cost = details['rate'] * details['hours']
@@ -1096,7 +1096,7 @@ def format_labor_costs():
     return f"""Customer shall feel the love from RWS as follows:
 {chr(10).join(labor_lines)}
 
-Total Project Cost: ${total_cost:,.0f}"""
+Total Project Value: ${total_cost:,.0f}"""
 
 def standardize_text(text):
     """Standardize text using dictionaries and regex patterns"""
@@ -1144,7 +1144,7 @@ def standardize_user_content():
             if 'description' in deliverable:
                 deliverable['description'] = standardize_text(deliverable['description'])
             
-            # Standardize labor cost descriptions
+            # Standardize labor value descriptions
             if 'labor_costs' in deliverable:
                 for role, details in deliverable['labor_costs'].items():
                     if isinstance(details, dict) and 'description' in details:
@@ -1207,9 +1207,9 @@ def generate_sow():  # no longer async
                                 milestone_date = milestone.get('due_date')
                                 if milestone_date:
                                     milestone_date_str = milestone_date.strftime('%B %d, %Y')
-                                    deliverable_text += f"- Milestone {j}: {milestone.get('description')} by {milestone_date_str}\n"
+                                    deliverable_text += f"- Milestone {j}:     {milestone.get('description')} by {milestone_date_str}\n"
                                 else:
-                                    deliverable_text += f"- Milestone {j}: {milestone.get('description')} (No date provided)\n"
+                                    deliverable_text += f"- Milestone {j}:     {milestone.get('description')} (No date provided)\n"
                     
                     deliverables_text += deliverable_text + "\n"
                     print(f"DEBUG: Added deliverable {deliverable_index}: {deliverable_text.strip()}")
@@ -1446,7 +1446,7 @@ def create_entries_record():
 
         # Add Deliverables section (only if deliverables exist)
         if 'deliverables' in st.session_state and st.session_state.deliverables:
-            doc.add_heading('Deliverables, Milestones, and Associated Labor Costs', level=1)
+            doc.add_heading('Deliverables, Milestones, and Associated Labor Values', level=1)
             for key, deliverable in st.session_state.deliverables.items():
                 if deliverable.get('description'):
                     doc.add_heading(f'Deliverable {key.split("_")[1]}', level=2)
@@ -1498,9 +1498,9 @@ def create_entries_record():
                     else:
                         doc.add_paragraph('Additional Services: [None specified]')
                     
-                    # Only add labor costs table if there are labor costs
+                    # Only add labor values table if there are labor values
                     if deliverable.get('labor_costs'):
-                        doc.add_heading('Labor Costs', level=3)
+                        doc.add_heading('Labor Values', level=3)
                         table = doc.add_table(rows=1, cols=5)
                         format_table(table)
                         header_cells = table.rows[0].cells
@@ -1528,7 +1528,7 @@ def create_entries_record():
                             doc.add_paragraph()  # Add space before total
                             p = doc.add_paragraph()
                             p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                            p.add_run("Total Labor Cost for Deliverable: ")
+                            p.add_run("Total Labor Value for Deliverable: ")
                             p.add_run(f"${total_deliverable_cost:,.0f}").bold = True
 
                     # Record deliverable-specific additional costs in detail
@@ -1749,9 +1749,9 @@ def create_entries_record():
         p.add_run(f"Total Additional Costs: ${total_additional_costs:,.0f}").bold = True
         p = doc.add_paragraph()
         total_labor_cost_safe = st.session_state.get('total_labor_cost', 0.0)
-        p.add_run(f"Total Labor Costs: ${total_labor_cost_safe:,.0f}").bold = True
+        p.add_run(f"Total Labor Values: ${total_labor_cost_safe:,.0f}").bold = True
         p = doc.add_paragraph()
-        p.add_run(f"Total Project Cost: ${(total_additional_costs + total_labor_cost_safe):,.0f}").bold = True
+        p.add_run(f"Total Project Value: ${(total_additional_costs + total_labor_cost_safe):,.0f}").bold = True
         
         # Timestamp
         doc.add_paragraph()
@@ -1954,12 +1954,12 @@ def generate_section_5_costs():
                 f"These efforts include, but are not limited to, onsite laboratory testing, offsite laboratory "
                 f"testing, and pilot system operation.\n\n")
     
-    # Add deliverables and labor costs in table format
+    # Add deliverables and labor values in table format
     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
         if isinstance(deliverable.get('labor_costs'), dict):
             section += f"**Deliverable {i}: {deliverable.get('description', '')}**\n\n"
             
-            # Add labor costs table
+            # Add labor values table
             section += "| Role | Description | Rate | Hours | Subtotal |\n"
             section += "|------|-------------|------|-------|----------|\n"
             
@@ -1972,7 +1972,7 @@ def generate_section_5_costs():
             # Add deliverable total
             del_total = sum(details['total'] for details in deliverable['labor_costs'].values() 
                           if isinstance(details, dict))
-            section += f"\n**Total Labor Cost for Deliverable: ${del_total:,.0f}**\n\n"
+            section += f"\n**Total Labor Value for Deliverable: ${del_total:,.0f}**\n\n"
             
             # Initialize additional costs total
             deliverable_additional_total = 0.0
@@ -2078,8 +2078,8 @@ def generate_section_5_costs():
     # Add detailed project totals breakdown
     section += "\n**Project Totals**\n\n"
     
-    # Labor costs breakdown by deliverable
-    section += "**Labor Costs by Deliverable:**\n\n"
+    # Labor Values breakdown by deliverable
+    section += "**Labor Values by Deliverable:**\n\n"
     for i, (del_key, deliverable) in enumerate(st.session_state.deliverables.items(), 1):
         if isinstance(deliverable.get('labor_costs'), dict):
             del_labor_total = sum(details['total'] for details in deliverable['labor_costs'].values() 
@@ -2137,11 +2137,11 @@ def generate_section_5_costs():
     section += f"\n**Project Summary:**\n\n"
     section += "| Category | Amount |\n"
     section += "|----------|--------|\n"
-    section += f"| Total Labor Costs | ${total_labor_cost:,.0f} |\n"
+    section += f"| Total Labor Values | ${total_labor_cost:,.0f} |\n"
     section += f"| Total Additional Costs | ${total_deliverable_additional_costs:,.0f} |\n"
     if materials_total > 0:
         section += f"| Total Materials Costs | ${materials_total:,.0f} |\n"
-    section += f"| **Total Project Cost** | **${total_project_cost:,.0f}** |\n\n"
+    section += f"| **Total Project Value** | **${total_project_cost:,.0f}** |\n\n"
     
     return section
 
@@ -2314,11 +2314,11 @@ def main():
     if 'deliverables' not in st.session_state:
         st.session_state.deliverables = {}
 
-    # Add a variable to keep track of the total labor cost for all deliverables
+    # Add a variable to keep track of the total labor value for all deliverables
     if 'total_labor_cost' not in st.session_state:
         st.session_state['total_labor_cost'] = 0.0
 
-    # Initialize the session state to store total labor costs across deliverables
+    # Initialize the session state to store total labor values across deliverables
     total_labor_cost = 0.0
 
     # Create sections for each deliverable
@@ -2803,7 +2803,7 @@ def main():
                 }
             
             # Show individual total for the deliverable
-            st.markdown(f"**Total Labor Cost for Deliverable {i + 1}: ${total_deliverable_cost:,.0f}**")
+            st.markdown(f"**Total Labor Value for Deliverable {i + 1}: ${total_deliverable_cost:,.0f}**")
 
         # Additional services section (after labor categories)
         additional = st.text_area(
@@ -2873,7 +2873,7 @@ def main():
         if deliverable_key in st.session_state.deliverables:
             deliverable = st.session_state.deliverables[deliverable_key]
             
-            # Calculate labor costs for this deliverable
+            # Calculate labor values for this deliverable
             deliverable_labor_cost = sum(
                 details.get('total', 0) 
                 for details in deliverable.get('labor_costs', {}).values()
@@ -2972,7 +2972,7 @@ def main():
     
     with col1:
         st.markdown("**Category**")
-        st.markdown("Total Labor Costs")
+        st.markdown("Total Labor Values")
         st.markdown("Total Deliverable Additional Costs") 
         st.markdown("Material Costs (project-wide)")
         st.markdown("---")
