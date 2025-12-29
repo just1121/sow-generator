@@ -1,6 +1,6 @@
 # Streamlit SOW Generator - Updated UI and Fixed Additional Terms
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 import os
 import io
@@ -1241,10 +1241,12 @@ Third Paragraph:
             [Detail the technical approach, methodologies, and specific services]
             """
 
-            # Configure and generate with model
-            genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
-            model = genai.GenerativeModel('gemini-3-flash-preview')
-            response = model.generate_content(prompt).text  # Remove asyncio.to_thread
+            # Configure and generate with model using new google.genai package
+            client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY"))
+            response = client.models.generate_content(
+                model='gemini-3-flash-preview',
+                contents=prompt
+            ).text
 
             if response:
                 logging.info("Model response received")
