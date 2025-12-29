@@ -1243,7 +1243,7 @@ Third Paragraph:
 
             # Configure and generate with model
             genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
-            model = genai.GenerativeModel('gemini-2.5-flash')
+            model = genai.GenerativeModel('gemini-3-flash-preview')
             response = model.generate_content(prompt).text  # Remove asyncio.to_thread
 
             if response:
